@@ -8,6 +8,8 @@ from collections.abc import Awaitable, Callable
 
 import structlog
 import websockets
+from cryptography.exceptions import InvalidTag
+from pydantic import ValidationError
 from websockets.asyncio.server import ServerConnection
 
 from mozhi_agent.models import EncryptedAudioPacket, PairingRequest
@@ -53,7 +55,7 @@ class AudioIngressServer:
                     if session is None:
                         await websocket.send(json.dumps({"type": "error", "message": "invalid_token"}))
                         continue
-                await self._handle_audio_packet(message, session)
+                await self._handle_audio_packet(websocket, message, session)
                 continue
             if event_type == "flush":
                 if self._on_flush is not None:
@@ -61,8 +63,16 @@ class AudioIngressServer:
                 await websocket.send(json.dumps({"type": "flush_ack"}))
                 continue
 
-    async def _handle_pairing(self, websocket: ServerConnection, message: dict) -> SessionContext:
-        req = PairingRequest.model_validate(message["payload"])
+    async def _handle_pairing(self, websocket: ServerConnection, message: dict) -> SessionContext | None:
+        payload = message.get("payload")
+        if payload is None:
+            await websocket.send(json.dumps({"type": "error", "message": "missing_payload"}))
+            return None
+        try:
+            req = PairingRequest.model_validate(payload)
+        except ValidationError:
+            await websocket.send(json.dumps({"type": "error", "message": "invalid_pair_payload"}))
+            return None
         session = self._pairing.create_session(req.device_id, req.client_public_key)
         response = {
             "type": "pair_ack",
@@ -76,10 +86,26 @@ class AudioIngressServer:
         logger.info("pairing.completed", device_id=req.device_id, device_name=req.device_name)
         return session
 
-    async def _handle_audio_packet(self, message: dict, session: SessionContext) -> None:
-        packet = EncryptedAudioPacket.model_validate(message["payload"])
-        plaintext = TransportCrypto.decrypt(session.aes_key, packet.nonce, packet.ciphertext)
+    async def _handle_audio_packet(self, websocket: ServerConnection, message: dict, session: SessionContext) -> bool:
+        payload = message.get("payload")
+        if payload is None:
+            await websocket.send(json.dumps({"type": "error", "message": "missing_payload"}))
+            return False
+
+        try:
+            packet = EncryptedAudioPacket.model_validate(payload)
+        except ValidationError:
+            await websocket.send(json.dumps({"type": "error", "message": "invalid_audio_payload"}))
+            return False
+
+        try:
+            plaintext = TransportCrypto.decrypt(session.aes_key, packet.nonce, packet.ciphertext)
+        except (InvalidTag, ValueError):
+            await websocket.send(json.dumps({"type": "error", "message": "decrypt_failed"}))
+            return False
+
         await self._on_audio(plaintext)
+        return True
 
 
 async def run_server(host: str, port: int, server: AudioIngressServer) -> None:
