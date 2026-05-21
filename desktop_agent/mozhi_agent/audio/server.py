@@ -8,6 +8,7 @@ from collections.abc import Awaitable, Callable
 
 import structlog
 import websockets
+from cryptography.exceptions import InvalidTag
 from pydantic import ValidationError
 from websockets.asyncio.server import ServerConnection
 
@@ -99,7 +100,7 @@ class AudioIngressServer:
 
         try:
             plaintext = TransportCrypto.decrypt(session.aes_key, packet.nonce, packet.ciphertext)
-        except ValueError:
+        except (InvalidTag, ValueError):
             await websocket.send(json.dumps({"type": "error", "message": "decrypt_failed"}))
             return False
 
