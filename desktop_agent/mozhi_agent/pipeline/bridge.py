@@ -20,6 +20,7 @@ from mozhi_agent.ui.confirm import confirm_injection
 logger = structlog.get_logger(__name__)
 
 SendTtsCallback = Callable[[str], Awaitable[None]]
+SendTranscriptCallback = Callable[[str], Awaitable[None]]
 
 
 class VoiceBridgePipeline:
@@ -42,12 +43,14 @@ class VoiceBridgePipeline:
         risk_filter: RiskFilter,
         injector: BaseInjector,
         send_tts: SendTtsCallback | None = None,
+        send_transcript: SendTranscriptCallback | None = None,
     ) -> None:
         self._settings = settings
         self._transcriber = transcriber
         self._risk_filter = risk_filter
         self._injector = injector
         self._send_tts = send_tts
+        self._send_transcript = send_transcript
         self._audio_buffer = bytearray()
         self._pending_text: list[str] = []
         self._response_watcher = ResponseWatcher(self._on_response_detected) if send_tts else None
@@ -143,6 +146,9 @@ class VoiceBridgePipeline:
                 details=f"auto_send={self._settings.auto_send}",
             )
         )
+
+        if self._send_transcript is not None:
+            asyncio.create_task(self._send_transcript(combined_text))
 
         if self._response_watcher is not None:
             asyncio.create_task(self._response_watcher.watch())

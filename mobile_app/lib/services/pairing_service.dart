@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -8,6 +9,9 @@ import 'session_store.dart';
 
 class PairingService {
   WebSocketChannel? _channel;
+
+  // Broadcast controller so multiple listeners can share one WS stream.
+  StreamController<dynamic>? _eventCtrl;
 
   Future<bool> pairWithData(String qrJson) async {
     try {
@@ -29,6 +33,16 @@ class PairingService {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
       await _channel!.ready;
 
+      // Wrap the single-subscription WS stream in a broadcast controller so
+      // both the pairing handshake and the ongoing TTS/transcript listener
+      // can independently read events from the same connection.
+      _eventCtrl = StreamController<dynamic>.broadcast();
+      _channel!.stream.listen(
+        _eventCtrl!.add,
+        onError: _eventCtrl!.addError,
+        onDone: _eventCtrl!.close,
+      );
+
       _channel!.sink.add(jsonEncode({
         'type': 'pair',
         'payload': {
@@ -38,7 +52,7 @@ class PairingService {
         },
       }));
 
-      final raw = await _channel!.stream.first;
+      final raw = await _eventCtrl!.stream.first;
       final responseStr = raw is String ? raw : utf8.decode(raw as List<int>);
       final ackMessage = jsonDecode(responseStr);
       if (ackMessage is! Map) throw Exception('Unexpected server response format');
@@ -78,6 +92,8 @@ class PairingService {
 
       return true;
     } catch (e) {
+      await _eventCtrl?.close();
+      _eventCtrl = null;
       await _channel?.sink.close();
       _channel = null;
       rethrow;
@@ -86,7 +102,12 @@ class PairingService {
 
   WebSocketChannel? get channel => _channel;
 
+  /// Broadcast stream of all server→client messages after pairing.
+  Stream<dynamic>? get events => _eventCtrl?.stream;
+
   Future<void> disconnect() async {
+    await _eventCtrl?.close();
+    _eventCtrl = null;
     await _channel?.sink.close();
     _channel = null;
     SessionStore.instance.clear();

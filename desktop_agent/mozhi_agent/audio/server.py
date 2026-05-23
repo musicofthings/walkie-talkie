@@ -45,6 +45,15 @@ class AudioIngressServer:
         except Exception as exc:
             logger.warning("tts.send_failed", error=str(exc))
 
+    async def send_transcript(self, text: str) -> None:
+        """Confirm the injected transcript back to mobile for chat display."""
+        if self._active_ws is None:
+            return
+        try:
+            await self._active_ws.send(json.dumps({"type": "transcript", "text": text}))
+        except Exception as exc:
+            logger.warning("transcript.send_failed", error=str(exc))
+
     async def handler(self, websocket: ServerConnection) -> None:
         """Websocket lifecycle entrypoint."""
         self._active_ws = websocket

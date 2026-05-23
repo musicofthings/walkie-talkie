@@ -49,7 +49,9 @@ async def _async_main() -> None:
     injector = get_injector()
     server = AudioIngressServer(pairing, on_audio=lambda _: None, on_flush=None)
     pipeline = VoiceBridgePipeline(
-        settings, transcriber, risk_filter, injector, send_tts=server.send_tts
+        settings, transcriber, risk_filter, injector,
+        send_tts=server.send_tts,
+        send_transcript=server.send_transcript,
     )
     server._on_audio = pipeline.handle_audio
     server._on_flush = pipeline.flush_buffer
