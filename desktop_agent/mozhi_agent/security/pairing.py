@@ -42,7 +42,7 @@ class PairingManager:
     def create_session(self, device_id: str, client_public_key_b64: str) -> SessionContext:
         """Create authenticated session context by deriving shared secret via HKDF."""
         client_public_key = x25519.X25519PublicKey.from_public_bytes(
-            base64.urlsafe_b64decode(client_public_key_b64)
+            _b64decode(client_public_key_b64)
         )
         shared_secret = self._private_key.exchange(client_public_key)
         derived_key = HKDF(
@@ -72,13 +72,18 @@ class PairingManager:
         return session
 
 
+def _b64decode(s: str) -> bytes:
+    """Decode base64url without requiring padding characters."""
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
 class TransportCrypto:
     """AES-GCM decrypt/encrypt helper for transport packets."""
 
     @staticmethod
     def decrypt(aes_key: bytes, nonce_b64: str, ciphertext_b64: str) -> bytes:
-        nonce = base64.urlsafe_b64decode(nonce_b64)
-        ciphertext = base64.urlsafe_b64decode(ciphertext_b64)
+        nonce = _b64decode(nonce_b64)
+        ciphertext = _b64decode(ciphertext_b64)
         return AESGCM(aes_key).decrypt(nonce, ciphertext, None)
 
     @staticmethod

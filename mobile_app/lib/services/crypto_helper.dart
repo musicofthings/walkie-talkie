@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
@@ -35,7 +34,7 @@ class CryptoHelper {
     final derived = await _hkdf.deriveKey(
       secretKey: SecretKey(sharedSecretBytes),
       info: utf8.encode('mozhi-audio-transport'),
-      nonce: Uint8List(0), // salt=None on desktop side
+      nonce: const <int>[], // empty salt — matches desktop salt=None
     );
     return derived;
   }

@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../services/audio_stream_service.dart';
 import '../services/pairing_service.dart';
+import '../services/tts_service.dart';
 import 'qr_scan_screen.dart';
 
 class PushToTalkScreen extends StatefulWidget {
@@ -14,10 +18,37 @@ class PushToTalkScreen extends StatefulWidget {
 class _PushToTalkScreenState extends State<PushToTalkScreen> {
   final PairingService _pairingService = PairingService();
   final AudioStreamService _audioService = AudioStreamService();
+  final TtsService _ttsService = TtsService();
+
+  StreamSubscription<dynamic>? _wsSub;
 
   bool _paired = false;
   bool _streaming = false;
   String? _error;
+  String? _lastResponse;
+
+  @override
+  void initState() {
+    super.initState();
+    _ttsService.init();
+  }
+
+  void _subscribeWs() {
+    final channel = _pairingService.channel;
+    if (channel == null) return;
+    _wsSub = channel.stream.listen((raw) {
+      try {
+        final msg = jsonDecode(raw is String ? raw : utf8.decode(raw as List<int>));
+        if (msg['type'] == 'tts') {
+          final text = (msg['text'] as String?) ?? '';
+          if (text.isNotEmpty) {
+            _ttsService.speak(text);
+            if (mounted) setState(() => _lastResponse = text);
+          }
+        }
+      } catch (_) {}
+    });
+  }
 
   Future<void> _pair() async {
     setState(() => _error = null);
@@ -32,6 +63,7 @@ class _PushToTalkScreenState extends State<PushToTalkScreen> {
       final paired = await _pairingService.pairWithData(qrJson);
       if (!mounted) return;
       setState(() => _paired = paired);
+      if (paired) _subscribeWs();
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'Pairing failed: $e');
@@ -70,7 +102,9 @@ class _PushToTalkScreenState extends State<PushToTalkScreen> {
 
   @override
   void dispose() {
+    _wsSub?.cancel();
     _audioService.dispose();
+    _ttsService.dispose();
     _pairingService.disconnect();
     super.dispose();
   }
@@ -138,8 +172,8 @@ class _PushToTalkScreenState extends State<PushToTalkScreen> {
                           : Colors.teal,
                   boxShadow: _streaming
                       ? [
-                          BoxShadow(
-                            color: Colors.red.withAlpha(100),
+                          const BoxShadow(
+                            color: Color.fromARGB(100, 244, 67, 54),
                             blurRadius: 24,
                             spreadRadius: 4,
                           ),
@@ -156,6 +190,22 @@ class _PushToTalkScreenState extends State<PushToTalkScreen> {
                   : 'Press and hold to stream audio securely',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+            if (_lastResponse != null) ...[
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Claude: $_lastResponse',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: Colors.teal),
+                  textAlign: TextAlign.center,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ],
         ),
       ),

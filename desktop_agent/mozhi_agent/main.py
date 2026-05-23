@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import structlog
 
@@ -28,8 +29,16 @@ async def _async_main() -> None:
     pairing = PairingManager(token_ttl_seconds=settings.token_ttl_seconds)
 
     payload = build_pairing_payload(settings, pairing)
-    render_pairing_qr(payload)
-    logger.info("pairing.qr_displayed", ws_url=payload["ws_url"])
+    payload_json = render_pairing_qr(payload)
+    logger.info("pairing.ready", listening_on=payload["ws_url"])
+    Path("pairing_qr.json").write_text(payload_json)
+    print("\n" + "=" * 60)
+    print("  COPY THIS LINE INTO THE APP  →  'Enter Manually'")
+    print("=" * 60)
+    print(payload_json)
+    print("=" * 60)
+    print("  (also saved to pairing_qr.json)")
+    print("=" * 60 + "\n")
 
     transcriber = WhisperTranscriber(
         model_size=settings.model_size,
@@ -38,9 +47,12 @@ async def _async_main() -> None:
     )
     risk_filter = RiskFilter(settings.action_log_path, settings.require_confirmation)
     injector = get_injector()
-    pipeline = VoiceBridgePipeline(settings, transcriber, risk_filter, injector)
-
-    server = AudioIngressServer(pairing, pipeline.handle_audio, on_flush=pipeline.flush_buffer)
+    server = AudioIngressServer(pairing, on_audio=lambda _: None, on_flush=None)
+    pipeline = VoiceBridgePipeline(
+        settings, transcriber, risk_filter, injector, send_tts=server.send_tts
+    )
+    server._on_audio = pipeline.handle_audio
+    server._on_flush = pipeline.flush_buffer
     await run_server(settings.bind_host, settings.bind_port, server)
 
 

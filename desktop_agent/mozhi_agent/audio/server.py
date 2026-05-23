@@ -33,35 +33,55 @@ class AudioIngressServer:
         self._pairing = pairing
         self._on_audio = on_audio
         self._on_flush = on_flush
+        self._active_ws: ServerConnection | None = None
+
+    async def send_tts(self, text: str) -> None:
+        """Push a TTS message to the connected mobile client."""
+        if self._active_ws is None:
+            return
+        try:
+            await self._active_ws.send(json.dumps({"type": "tts", "text": text}))
+            logger.info("tts.sent", chars=len(text))
+        except Exception as exc:
+            logger.warning("tts.send_failed", error=str(exc))
 
     async def handler(self, websocket: ServerConnection) -> None:
         """Websocket lifecycle entrypoint."""
+        self._active_ws = websocket
         session: SessionContext | None = None
-        async for payload in websocket:
-            try:
-                message = json.loads(payload)
-            except (json.JSONDecodeError, TypeError) as exc:
-                logger.warning("ws.invalid_payload", error=str(exc))
-                await websocket.send(json.dumps({"type": "error", "message": "invalid_json"}))
-                continue
-            event_type = message.get("type")
-            if event_type == "pair":
-                session = await self._handle_pairing(websocket, message)
-                continue
-            if event_type == "audio":
-                if session is None:
-                    token = message.get("token", "")
-                    session = self._pairing.validate_token(token)
+        try:
+            async for payload in websocket:
+                try:
+                    message = json.loads(payload)
+                except (json.JSONDecodeError, TypeError) as exc:
+                    logger.warning("ws.invalid_payload", error=str(exc))
+                    await websocket.send(json.dumps({"type": "error", "message": "invalid_json"}))
+                    continue
+                event_type = message.get("type")
+                if event_type == "pair":
+                    session = await self._handle_pairing(websocket, message)
+                    continue
+                if event_type == "audio":
                     if session is None:
-                        await websocket.send(json.dumps({"type": "error", "message": "invalid_token"}))
+                        token = message.get("token", "")
+                        session = self._pairing.validate_token(token)
+                        if session is None:
+                            await websocket.send(json.dumps({"type": "error", "message": "invalid_token"}))
+                            continue
+                    await self._handle_audio_packet(websocket, message, session)
+                    continue
+                if event_type == "flush":
+                    if session is None:
+                        await websocket.send(json.dumps({"type": "error", "message": "not_paired"}))
                         continue
-                await self._handle_audio_packet(websocket, message, session)
-                continue
-            if event_type == "flush":
-                if self._on_flush is not None:
-                    await self._on_flush()
-                await websocket.send(json.dumps({"type": "flush_ack"}))
-                continue
+                    if self._on_flush is not None:
+                        await self._on_flush()
+                    await websocket.send(json.dumps({"type": "flush_ack"}))
+                    continue
+                await websocket.send(json.dumps({"type": "error", "message": "unknown_event_type"}))
+        finally:
+            if self._active_ws is websocket:
+                self._active_ws = None
 
     async def _handle_pairing(self, websocket: ServerConnection, message: dict) -> SessionContext | None:
         payload = message.get("payload")
@@ -73,7 +93,11 @@ class AudioIngressServer:
         except ValidationError:
             await websocket.send(json.dumps({"type": "error", "message": "invalid_pair_payload"}))
             return None
-        session = self._pairing.create_session(req.device_id, req.client_public_key)
+        try:
+            session = self._pairing.create_session(req.device_id, req.client_public_key)
+        except (ValueError, Exception):
+            await websocket.send(json.dumps({"type": "error", "message": "invalid_public_key"}))
+            return None
         response = {
             "type": "pair_ack",
             "payload": {

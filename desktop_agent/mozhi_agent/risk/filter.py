@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import re
+import structlog
 from pathlib import Path
 
 from mozhi_agent.models import ActionLogEntry, RiskDecision
+
+logger = structlog.get_logger(__name__)
 
 RISK_KEYWORDS = (
     "delete",
@@ -45,5 +48,8 @@ class RiskFilter:
             f"{entry.ts_utc.isoformat()}\t{entry.action}\t"
             f"{entry.transcript.replace(chr(9), ' ')}\t{entry.details}\n"
         )
-        with self._path.open('a', encoding='utf-8') as handle:
-            handle.write(line)
+        try:
+            with self._path.open('a', encoding='utf-8') as handle:
+                handle.write(line)
+        except OSError as exc:
+            logger.error("audit.write_failed", path=str(self._path), error=str(exc))

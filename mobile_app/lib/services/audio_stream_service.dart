@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:record/record.dart';
@@ -16,8 +15,7 @@ class AudioStreamService {
   StreamSubscription<List<int>>? _audioSub;
   WebSocketChannel? _channel;
 
-  // Buffer PCM bytes until we have enough for a meaningful chunk
-  final _pcmBuffer = BytesBuilder(copy: false);
+  final _pcmBuffer = <int>[];
 
   /// ~1 second of PCM16 mono @ 16 kHz = 32 000 bytes
   static const int _chunkSize = 16000 * 2;
@@ -33,6 +31,14 @@ class AudioStreamService {
 
     _channel = channel;
 
+    final hasPermission = await _recorder.hasPermission();
+    if (!hasPermission) {
+      throw StateError(
+        'Microphone permission denied. Go to Settings → Privacy → Microphone '
+        'and enable access for this app.',
+      );
+    }
+
     final stream = await _recorder.startStream(
       const RecordConfig(
         encoder: AudioEncoder.pcm16bits,
@@ -44,10 +50,11 @@ class AudioStreamService {
       ),
     );
 
-    _audioSub = stream.listen((chunk) {
-      _pcmBuffer.add(chunk);
+    _audioSub = stream.cast<List<int>>().listen((chunk) {
+      _pcmBuffer.addAll(chunk);
       if (_pcmBuffer.length >= _chunkSize) {
-        final bytes = _pcmBuffer.takeBytes();
+        final bytes = List<int>.from(_pcmBuffer);
+        _pcmBuffer.clear();
         _sendEncrypted(bytes, session.sessionToken, session.sharedSecret);
       }
     });
@@ -64,8 +71,9 @@ class AudioStreamService {
 
     // Flush any remaining buffered audio
     final session = SessionStore.instance.session;
-    if (_pcmBuffer.length > 0 && session != null) {
-      final remaining = _pcmBuffer.takeBytes();
+    if (_pcmBuffer.isNotEmpty && session != null) {
+      final remaining = List<int>.from(_pcmBuffer);
+      _pcmBuffer.clear();
       await _sendEncrypted(
         remaining,
         session.sessionToken,
@@ -86,7 +94,7 @@ class AudioStreamService {
   ) async {
     if (_channel == null) return;
 
-    final aesKey = SecretKeyData(Uint8List.fromList(aesKeyBytes));
+    final aesKey = SecretKeyData(aesKeyBytes);
     final (:nonceB64, :ciphertextB64) = await CryptoHelper.encrypt(
       aesKey,
       pcmBytes,
