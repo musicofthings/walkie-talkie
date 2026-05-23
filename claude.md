@@ -58,8 +58,21 @@ Fully implemented modular desktop service under `desktop_agent/mozhi_agent`:
 
 - **Injection Layer** (`injection/`)
   - Abstract `BaseInjector` with platform factory (deferred imports to avoid cross-platform ImportError).
-  - macOS: AppleScript via `osascript`.
-  - Windows: `pywinauto` + `keyboard.send_keys`.
+  - macOS (`injection/macos.py`): **AX focus + clipboard paste** (NOT `keystroke`). Claude Desktop is Electron — its composer is a web `contenteditable` exposed as the single `AXTextArea` described "Write your prompt to Claude". Flow: `open -a Claude` if not running → `activate` + deminimize → `macos_ax.focus_composer()` (sets `AXFocused`; required because a plain `activate` only auto-focuses on app-switch, so consecutive utterances fail without it) → `Cmd+V` paste (unicode-safe, appends to active tab) → optional Enter → verify via composer `AXValue` → restore clipboard.
+  - Windows: `pywinauto` + `keyboard.send_keys` (unchanged; AX work is macOS-only so far).
+  - **Why not the `claude://` deeplink:** it targets a surface but always starts a NEW session and CANNOT auto-send (prefill-only) — wrong for an append-and-send conversational loop.
+
+- **macOS Accessibility helpers** (`macos_ax.py`)
+  - Raw AX API (pyobjc `ApplicationServices`) — the only way to read/focus Claude's Electron web content (AppleScript `entire contents` can't cross the `AXWebArea`). ~0.35s full window walk.
+  - `focus_composer()`, `composer_value()`, `read_conversation_static_texts()` (sidebar excluded), `extract_latest_response()` (anchors on the "You said:" label; skips chrome, timestamps, model name, and the duplicate "Claude responded:" summary node).
+  - Lifecycle signals exposed as static text: `"Claude is responding"` → `"Claude finished the response"`.
+  - Requires `pyobjc-framework-ApplicationServices` (added to pyproject `[macos]` extra).
+
+- **Real-time Response Watcher** (`response_watcher.py`)
+  - Polls AX (~0.5s) and streams Claude's reply to TTS **sentence-by-sentence as it is generated** (low latency for hands-free conversation), instead of waiting for the whole response.
+  - Completion detected via the `"Claude finished the response"` status signal, not a timing heuristic.
+  - Diffs new content by already-spoken-text **prefix** (with whitespace normalization + common-prefix resync), NOT an integer offset — AXStaticText re-segments between polls, which would otherwise cause mid-word breaks/duplicates.
+  - Wired in `bridge.py`: `ResponseWatcher(self._send_tts)`; `snapshot_baseline(combined_text)` before injection; `watch()` task after a successful inject.
 
 - **Confirmation UI + Tray** (`ui/`)
   - Tkinter confirmation dialog for risky transcripts.
@@ -137,8 +150,9 @@ Fully implemented mobile client under `mobile_app/`:
 2. **Mobile scans QR** -> extracts `ws_url` + `desktop_public_key`.
 3. **Mobile pairs** -> generates X25519 keypair -> WebSocket connect -> sends `pair` -> receives `pair_ack` -> HKDF derives AES key -> stores session.
 4. **User holds mic button** -> mobile captures PCM16 mono 16kHz -> buffers 1s chunks -> AES-GCM encrypts -> sends over WebSocket.
-5. **Desktop receives** -> decrypts AES-GCM -> buffers 3s of PCM -> transcribes via Whisper -> evaluates risk keywords -> optional confirmation dialog -> injects text into Claude Desktop.
+5. **Desktop receives** -> decrypts AES-GCM -> buffers 3s of PCM -> transcribes via Whisper -> evaluates risk keywords -> optional confirmation dialog -> AX-focus composer + paste into active Claude tab + Enter.
 6. **User releases mic** -> mobile flushes remaining audio -> sends `flush` -> desktop processes remaining buffer.
+7. **Downlink (bidirectional TTS)** -> after injection, `ResponseWatcher` polls Claude's AX tree -> streams each completed sentence of Claude's reply over the WebSocket (`type: "tts"`) -> mobile `TtsService` queues and speaks them in order (barge-in via `flush()`).
 
 ---
 
@@ -162,7 +176,7 @@ Fully implemented mobile client under `mobile_app/`:
 3. Tray icon has no stop/cleanup mechanism.
 
 ### UX Polish
-1. Claude window detection could be more robust.
+1. ~~Claude window detection could be more robust.~~ **DONE** — AX focus + paste handles open/minimized/quit/already-frontmost (macOS).
 2. No "preview transcript before send" mode.
 3. No per-workspace risk policies.
 4. No persistent device trust (re-pair needed on restart).
@@ -201,9 +215,14 @@ Fully implemented mobile client under `mobile_app/`:
 ---
 
 ## Handover Notes for Next Session
-- The core E2E pipeline is now complete: mobile captures -> encrypts -> streams -> desktop decrypts -> transcribes -> risk-checks -> injects.
-- Priority should be hardening (heartbeat, reconnect, token refresh) and test coverage.
+- The core E2E pipeline is now complete: mobile captures -> encrypts -> streams -> desktop decrypts -> transcribes -> risk-checks -> injects, **and streams Claude's reply back as TTS sentence-by-sentence** (bidirectional).
+- **Injection / downlink are macOS-only** so far (raw AX API). Windows still uses `pywinauto`; no Windows response watcher yet.
+- **Accessibility permission required:** the agent's *terminal* (not VSCode) must be in System Settings → Privacy & Security → Accessibility, or AX focus + `osascript` keystrokes silently no-op.
+- **macOS AX is brittle to Claude UI changes:** the composer is matched by AXDescription `"Write your prompt to Claude"`, and the watcher keys off the status strings `"Claude is responding"` / `"Claude finished the response"` and the `"You said:"` / `"Claude responded:"` labels. If a Claude Desktop update renames these, update `macos_ax.py`.
+- **Future direction (per project owner):** moving STT to a Gemini real-time, multilingual voice model — likely Gemini Live, which handles bidirectional streaming natively and would supersede the Whisper + AX-scrape + TTS pipeline. Don't over-invest in the AX approach.
+- `poll_interval` (default 0.5s) in `ResponseWatcher` trades downlink latency for CPU; AX read is ~0.35s so 0.3s is feasible.
+- Priority should also include hardening (heartbeat, reconnect, token refresh) and test coverage.
 - HKDF info string `"mozhi-audio-transport"` MUST match between desktop and mobile.
-- Desktop uses `qrcode[pil]` — ensure it is installed (`pip install qrcode[pil]`).
-- Mobile uses `record` plugin — requires microphone permission on iOS/Android.
+- Desktop uses `qrcode[pil]` — ensure it is installed (`pip install qrcode[pil]`). Install macOS extras for AX: `pip install -e .[macos]`.
+- Mobile uses `record` plugin — requires microphone permission on iOS/Android. `TtsService` uses queue mode (`setQueueMode(1)`) so streamed sentences play in order; `flush()` interrupts for a new turn.
 - Keep all new modules typed, async where applicable, and with structured logs.

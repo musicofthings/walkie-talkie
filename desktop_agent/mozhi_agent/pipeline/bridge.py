@@ -53,7 +53,8 @@ class VoiceBridgePipeline:
         self._send_transcript = send_transcript
         self._audio_buffer = bytearray()
         self._pending_text: list[str] = []
-        self._response_watcher = ResponseWatcher(self._on_response_detected) if send_tts else None
+        # The watcher streams Claude's reply to send_tts sentence-by-sentence.
+        self._response_watcher = ResponseWatcher(self._send_tts) if send_tts else None
 
     async def handle_audio(self, pcm_bytes: bytes) -> None:
         """Buffer incoming PCM. Transcribe rolling chunks but defer injection."""
@@ -132,7 +133,7 @@ class VoiceBridgePipeline:
             asyncio.create_task(self._send_transcript(combined_text))
 
         if self._response_watcher is not None:
-            self._response_watcher.snapshot_baseline()
+            self._response_watcher.snapshot_baseline(combined_text)
 
         injected = False
         try:
@@ -157,10 +158,3 @@ class VoiceBridgePipeline:
 
         if injected and self._response_watcher is not None:
             asyncio.create_task(self._response_watcher.watch())
-
-    async def _on_response_detected(self, response_text: str) -> None:
-        """Called by ResponseWatcher when Claude Desktop emits a new response."""
-        if self._send_tts is None:
-            return
-        logger.info("tts.response_detected", chars=len(response_text))
-        await self._send_tts(response_text)

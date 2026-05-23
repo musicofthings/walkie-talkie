@@ -1,70 +1,58 @@
-"""Watches Claude Desktop for new AI responses via macOS Accessibility API."""
+"""Real-time watcher for Claude Desktop responses (macOS).
+
+Polls Claude's Electron UI via the raw AX API and streams the assistant's reply
+out **sentence-by-sentence as it is generated**, so downlink TTS can start
+speaking while Claude is still writing — essential for a hands-free, two-way
+conversation.  Completion is detected via Claude's own AX status text
+("Claude finished the response") rather than a timing heuristic.
+"""
 
 from __future__ import annotations
 
 import asyncio
-import subprocess
+import re
 from collections.abc import Awaitable, Callable
 
 import structlog
 
 logger = structlog.get_logger(__name__)
 
-# Minimum new characters to count as a real response (not a UI artifact)
-_MIN_RESPONSE_CHARS = 20
+# A sentence boundary: . ! ? or … followed by whitespace or end-of-text.
+_SENTENCE_END = re.compile(r"[.!?…]+(?:\s|$)")
 
 
-def _read_claude_text() -> str:
-    """Extract all AXStaticText values from Claude Desktop's front window."""
-    script = """
-tell application "System Events"
-    if not (exists (processes whose name is "Claude")) then return ""
-    tell process "Claude"
-        try
-            set allText to ""
-            repeat with elem in entire contents of front window
-                try
-                    if (role of elem) is "AXStaticText" then
-                        set v to value of elem
-                        if v is not missing value and v is not "" then
-                            set allText to allText & v & "\n"
-                        end if
-                    end if
-                end try
-            end repeat
-            return allText
-        on error
-            return ""
-        end try
-    end tell
-end tell
-"""
-    try:
-        result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True, text=True, timeout=12,
-        )
-        return result.stdout.strip() if result.returncode == 0 else ""
-    except (subprocess.TimeoutExpired, OSError) as exc:
-        logger.warning("response_watcher.read_failed", error=str(exc))
-        return ""
+def _common_prefix(a: str, b: str) -> str:
+    n = min(len(a), len(b))
+    i = 0
+    while i < n and a[i] == b[i]:
+        i += 1
+    return a[:i]
 
 
 class ResponseWatcher:
-    """Polls Claude Desktop and fires a callback when a new response appears."""
+    """Streams Claude Desktop's reply to a sink, sentence by sentence.
 
-    def __init__(self, on_response: Callable[[str], Awaitable[None]]) -> None:
-        self._on_response = on_response
-        self._baseline: str = ""
-        self._active: bool = False
+    ``on_text`` is awaited with each newly-completed chunk (one or more whole
+    sentences).  ``on_complete`` if provided is awaited once with the full reply.
+    """
 
-    def snapshot_baseline(self) -> None:
-        """Call this just before injecting text to capture the current state."""
-        self._baseline = _read_claude_text()
-        logger.debug("response_watcher.baseline", chars=len(self._baseline))
+    def __init__(
+        self,
+        on_text: Callable[[str], Awaitable[None]],
+        on_complete: Callable[[str], Awaitable[None]] | None = None,
+    ) -> None:
+        self._on_text = on_text
+        self._on_complete = on_complete
+        self._user_message = ""
+        self._spoken = ""  # normalized assistant text already emitted to TTS
+        self._active = False
 
-    async def watch(self, poll_interval: float = 1.5, timeout_secs: int = 90) -> None:
-        """Poll for new response text, fire callback on first detection."""
+    def snapshot_baseline(self, user_message: str = "") -> None:
+        """Call just before injection: records the user's message and resets state."""
+        self._user_message = user_message
+        self._spoken = ""
+
+    async def watch(self, poll_interval: float = 0.5, timeout_secs: int = 120) -> None:
         if self._active:
             return
         self._active = True
@@ -74,23 +62,58 @@ class ResponseWatcher:
             self._active = False
 
     async def _poll(self, interval: float, timeout_secs: int) -> None:
-        baseline_len = len(self._baseline)
-        iterations = int(timeout_secs / interval)
+        # Imported lazily so non-macOS imports of this module don't fail.
+        from mozhi_agent import macos_ax
 
-        for _ in range(iterations):
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout_secs
+        saw_responding = False
+
+        while loop.time() < deadline:
             await asyncio.sleep(interval)
-            current = _read_claude_text()
-            if not current or len(current) <= baseline_len + _MIN_RESPONSE_CHARS:
-                continue
+            texts = await loop.run_in_executor(None, macos_ax.read_conversation_static_texts)
+            if macos_ax.STATUS_RESPONDING in texts:
+                saw_responding = True
+            done = macos_ax.STATUS_DONE in texts
+            assistant = macos_ax.extract_latest_response(texts, self._user_message)
 
-            # Extract delta: everything after the baseline
-            new_text = current[baseline_len:].strip()
-            if len(new_text) < _MIN_RESPONSE_CHARS:
-                continue
+            await self._emit_ready_sentences(assistant)
 
-            logger.info("response_watcher.detected", new_chars=len(new_text))
-            self._baseline = current
-            await self._on_response(new_text)
+            if done and (saw_responding or assistant):
+                remainder = self._pending(assistant).strip()
+                if remainder:
+                    await self._on_text(remainder)
+                self._spoken = assistant
+                logger.info("response_watcher.complete", chars=len(assistant))
+                if self._on_complete is not None:
+                    await self._on_complete(assistant)
+                return
+
+        logger.debug("response_watcher.timeout_no_completion")
+
+    def _pending(self, assistant: str) -> str:
+        """The part of the (normalized) reply not yet emitted.
+
+        The reply is append-only in meaning but its AXStaticText segmentation can
+        shift between polls, so we diff against the already-spoken text by prefix
+        (resyncing to the common prefix when an earlier shift occurs) rather than
+        a brittle integer offset.
+        """
+        if not assistant.startswith(self._spoken):
+            self._spoken = _common_prefix(self._spoken, assistant)
+        return assistant[len(self._spoken):]
+
+    async def _emit_ready_sentences(self, assistant: str) -> None:
+        """Emit whole sentences that have appeared since the last emission."""
+        pending = self._pending(assistant)
+        if not pending:
             return
-
-        logger.debug("response_watcher.timeout_no_response")
+        ends = list(_SENTENCE_END.finditer(pending))
+        if not ends:
+            return
+        cut = ends[-1].end()
+        chunk = pending[:cut].strip()
+        if chunk:
+            logger.info("response_watcher.chunk", chars=len(chunk))
+            await self._on_text(chunk)
+        self._spoken += pending[:cut]
