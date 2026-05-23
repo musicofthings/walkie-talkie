@@ -48,15 +48,19 @@ class AudioIngressServer:
     async def send_transcript(self, text: str) -> None:
         """Confirm the injected transcript back to mobile for chat display."""
         if self._active_ws is None:
+            print(f"[mozhi] send_transcript: no active WS, skipping", flush=True)
             return
         try:
             await self._active_ws.send(json.dumps({"type": "transcript", "text": text}))
+            print(f"[mozhi] → transcript sent to mobile: {text[:60]}", flush=True)
         except Exception as exc:
+            print(f"[mozhi] send_transcript FAILED: {exc}", flush=True)
             logger.warning("transcript.send_failed", error=str(exc))
 
     async def handler(self, websocket: ServerConnection) -> None:
         """Websocket lifecycle entrypoint."""
         self._active_ws = websocket
+        print("[mozhi] client connected, active_ws set", flush=True)
         session: SessionContext | None = None
         try:
             async for payload in websocket:

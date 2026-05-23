@@ -27,7 +27,7 @@ class AgentSettings(BaseSettings):
     language: str = "en"
 
     auto_send: bool = True
-    require_confirmation: bool = True
+    require_confirmation: bool = False
 
     action_log_path: Path = Field(default=Path("logs/actions.log"))
 

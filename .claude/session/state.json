@@ -9,7 +9,7 @@
   "git_branch": "main",
   "repo": "mozhi",
   "saved_by": "oncophenomics.local",
-  "last_stop": "2026-05-23T16:44:37Z",
+  "last_stop": "2026-05-23T17:39:30Z",
   "last_stop_reason": "end_turn",
   "changed_files": [
     "/Users/theranosis_dx/projects/mozhi/desktop_agent/mozhi_agent/audio/server.py",
@@ -29,7 +29,8 @@
     "/Users/theranosis_dx/projects/mozhi/desktop_agent/mozhi_agent/pipeline/bridge.py",
     "/Users/theranosis_dx/projects/mozhi/desktop_agent/mozhi_agent/stt/transcriber.py",
     "/Users/theranosis_dx/projects/mozhi/desktop_agent/mozhi_agent/response_watcher.py",
-    "/Users/theranosis_dx/projects/mozhi/mobile_app/lib/services/tts_service.dart"
+    "/Users/theranosis_dx/projects/mozhi/mobile_app/lib/services/tts_service.dart",
+    "/Users/theranosis_dx/projects/mozhi/desktop_agent/mozhi_agent/config.py"
   ],
   "trigger": "auto",
   "context_pct_at_compact": "unknown",

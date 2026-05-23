@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-23T16:44:39Z",
+  "updated": "2026-05-23T17:39:33Z",
   "tier": "pro",
   "data_source": "cost_proxy",
   "status": "HEALTHY",
@@ -9,7 +9,7 @@
   "rl_7d_pct": null,
   "rl_5h_reset": "",
   "pct_used": 0.0,
-  "turns_today": 27,
+  "turns_today": 28,
   "cost_today_usd": 0.0,
   "turns_to_warn": 0,
   "turns_to_critical": 0,

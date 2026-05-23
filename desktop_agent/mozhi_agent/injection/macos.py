@@ -16,24 +16,30 @@ class MacOSInjector(BaseInjector):
 
     def inject(self, text: str, press_enter: bool = True) -> None:
         escaped = text.replace('\\', '\\\\').replace('"', '\\"')
-        script = [
-            'tell application "Claude" to activate',
-            'tell application "System Events"',
-            f'keystroke "{escaped}"',
-        ]
-        if press_enter:
-            script.append('key code 36')
-        script.append('end tell')
+        enter_line = '\n        key code 36' if press_enter else ''
+        # Target Claude's process directly so keystrokes reach it regardless
+        # of which app has visual focus at the moment of execution.
+        script = f'''\
+tell application "Claude" to activate
+delay 0.4
+tell application "System Events"
+    tell process "Claude"
+        keystroke "{escaped}"{enter_line}
+    end tell
+end tell'''
         try:
-            subprocess.run(["osascript", "-e", "\n".join(script)], check=True,
-                           capture_output=True)
+            subprocess.run(["osascript", "-e", script], check=True, capture_output=True)
+            logger.info("injection.ok", chars=len(text))
         except subprocess.CalledProcessError as exc:
             stderr = exc.stderr.decode(errors="replace") if exc.stderr else ""
             if "1002" in stderr or "not allowed" in stderr.lower():
-                logger.error(
-                    "injection.accessibility_denied",
-                    fix="Go to System Settings → Privacy & Security → Accessibility "
-                        "and add your Terminal app (or grant access to osascript).",
+                print(
+                    "\n⚠️  ACCESSIBILITY PERMISSION REQUIRED\n"
+                    "   System Settings → Privacy & Security → Accessibility\n"
+                    "   Add Terminal (or your shell app) to the allowed list.\n",
+                    flush=True,
                 )
+                logger.error("injection.accessibility_denied")
             else:
                 logger.error("injection.failed", stderr=stderr, returncode=exc.returncode)
+            raise  # re-raise so bridge.py can log and still send transcript to mobile

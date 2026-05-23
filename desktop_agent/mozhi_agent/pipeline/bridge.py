@@ -125,9 +125,16 @@ class VoiceBridgePipeline:
                 logger.warning("risk.blocked", keyword=decision.keyword)
                 return
 
+        # Send transcript to mobile immediately — before injection — so the
+        # user's bubble appears regardless of whether injection succeeds.
+        print(f"[mozhi] _process_chunk: scheduling send_transcript, send_fn={self._send_transcript is not None}", flush=True)
+        if self._send_transcript is not None:
+            asyncio.create_task(self._send_transcript(combined_text))
+
         if self._response_watcher is not None:
             self._response_watcher.snapshot_baseline()
 
+        injected = False
         try:
             await loop.run_in_executor(
                 None,
@@ -135,22 +142,20 @@ class VoiceBridgePipeline:
                     self._injector.inject, combined_text, press_enter=self._settings.auto_send,
                 ),
             )
+            injected = True
         except Exception as exc:
             logger.error("injection.error", error=str(exc))
-            return
+
         self._risk_filter.append_audit(
             ActionLogEntry(
                 ts_utc=datetime.now(UTC),
-                action="injected",
+                action="injected" if injected else "inject_failed",
                 transcript=combined_text,
                 details=f"auto_send={self._settings.auto_send}",
             )
         )
 
-        if self._send_transcript is not None:
-            asyncio.create_task(self._send_transcript(combined_text))
-
-        if self._response_watcher is not None:
+        if injected and self._response_watcher is not None:
             asyncio.create_task(self._response_watcher.watch())
 
     async def _on_response_detected(self, response_text: str) -> None:
