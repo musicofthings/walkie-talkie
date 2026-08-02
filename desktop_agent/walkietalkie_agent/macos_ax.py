@@ -1,18 +1,20 @@
-"""macOS Accessibility (AX) helpers for Claude Desktop's Electron UI.
+"""macOS Accessibility (AX) helpers for desktop agent apps.
 
 AppleScript's ``entire contents`` cannot cross the ``AXWebArea`` boundary, so it
-sees none of Claude's web content.  The raw ``AXUIElement`` API (what screen
-readers use) can, and is fast (~0.35 s for a full window walk).  We use it both
-to focus the composer for injection and to read streamed responses.
+sees none of the app content in Electron/WebView-based agents. The raw
+``AXUIElement`` API (what screen readers use) can, and is fast enough for
+focus/readback loops.
 
-macOS-only: imports ``ApplicationServices`` (pyobjc).  Import this module lazily
-on non-macOS platforms.
+This module is intentionally target-agnostic: it supports focusing a composer
+field, reading its value, and walking static text nodes for response capture.
+Target-specific labels and process names are provided by higher-level profiles.
 """
 
 from __future__ import annotations
 
 import re
 import subprocess
+from collections.abc import Iterable
 
 from ApplicationServices import (  # type: ignore[import-not-found]
     AXUIElementCopyAttributeValue,
@@ -20,32 +22,17 @@ from ApplicationServices import (  # type: ignore[import-not-found]
     AXUIElementSetAttributeValue,
 )
 
-# AXDescription of the message composer text area.
-COMPOSER_DESC = "Write your prompt to Claude"
-
-# Response lifecycle signals exposed as AXStaticText in the conversation.
-STATUS_RESPONDING = "Claude is responding"
-STATUS_DONE = "Claude finished the response"
-
-# Static text that is UI chrome rather than conversation content.
-CHROME = frozenset({
-    "Skip to content",
-    "Write a message…",
-    "Adaptive",
-    "Claude is AI and can make mistakes. Please double-check responses.",
-    STATUS_RESPONDING,
-    STATUS_DONE,
-})
-
 _TIMESTAMP = re.compile(r"^\d{1,2}:\d{2}$")
 _MODEL_NAME = re.compile(r"^(Sonnet|Opus|Haiku)\b")
-_USER_LABEL = "You said:"
-_ASSISTANT_LABEL = "Claude responded:"
 
 
-def claude_pid() -> int | None:
-    out = subprocess.run(["pgrep", "-x", "Claude"], capture_output=True, text=True).stdout.split()
-    return int(out[0]) if out else None
+def app_pid(process_names: Iterable[str]) -> int | None:
+    """Return the first matching process id for an app target."""
+    for process_name in process_names:
+        out = subprocess.run(["pgrep", "-x", process_name], capture_output=True, text=True).stdout.split()
+        if out:
+            return int(out[0])
+    return None
 
 
 def _attr(element, name):
@@ -53,8 +40,8 @@ def _attr(element, name):
     return value if err == 0 else None
 
 
-def app_element():
-    pid = claude_pid()
+def app_element(process_names: Iterable[str]):
+    pid = app_pid(process_names)
     return AXUIElementCreateApplication(pid) if pid else None
 
 
@@ -74,30 +61,74 @@ def _find(element, role=None, desc=None, depth=0):
     return None
 
 
-def find_composer(app=None):
-    app = app or app_element()
+def _find_any(element, roles: tuple[str, ...], desc_candidates: tuple[str, ...], depth=0):
+    if depth > 60:
+        return None
+    role = _attr(element, "AXRole")
+    desc = _attr(element, "AXDescription")
+    if (role in roles) and (not desc_candidates or desc in desc_candidates):
+        return element
+    children = _attr(element, "AXChildren")
+    if children:
+        for child in children:
+            found = _find_any(child, roles, desc_candidates, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def find_composer(
+    composer_descriptions: Iterable[str] | None = None,
+    process_names: Iterable[str] = ("Claude",),
+    app=None,
+):
+    """Find a target composer field.
+
+    If one of the supplied descriptions matches, it is preferred. Otherwise the
+    first editable AX text control is returned as a best-effort fallback.
+    """
+    app = app or app_element(process_names)
     if app is None:
         return None
-    return _find(app, role="AXTextArea", desc=COMPOSER_DESC)
+
+    desc_candidates = tuple(composer_descriptions or ())
+    if desc_candidates:
+        found = _find_any(app, ("AXTextArea", "AXTextField"), desc_candidates)
+        if found is not None:
+            return found
+
+    return _find_any(app, ("AXTextArea", "AXTextField"), ())
 
 
-def focus_composer(app=None) -> bool:
-    """Set keyboard focus on the composer. Works even when Claude is already frontmost."""
-    composer = find_composer(app)
+def focus_composer(
+    composer_descriptions: Iterable[str] | None = None,
+    process_names: Iterable[str] = ("Claude",),
+    app=None,
+) -> bool:
+    """Set keyboard focus on the composer."""
+    composer = find_composer(composer_descriptions, process_names, app)
     if composer is None:
         return False
     AXUIElementSetAttributeValue(composer, "AXFocused", True)
     return True
 
 
-def composer_value(app=None) -> str | None:
-    composer = find_composer(app)
+def composer_value(
+    composer_descriptions: Iterable[str] | None = None,
+    process_names: Iterable[str] = ("Claude",),
+    app=None,
+) -> str | None:
+    composer = find_composer(composer_descriptions, process_names, app)
     return _attr(composer, "AXValue") if composer is not None else None
 
 
-def read_conversation_static_texts(app=None) -> list[str]:
+def read_conversation_static_texts(
+    process_names: Iterable[str] = ("Claude",),
+    sidebar_title: str = "Sidebar",
+    app=None,
+) -> list[str]:
     """Document-order AXStaticText values from the main content (sidebar excluded)."""
-    app = app or app_element()
+    app = app or app_element(process_names)
     if app is None:
         return []
     out: list[str] = []
@@ -106,7 +137,7 @@ def read_conversation_static_texts(app=None) -> list[str]:
         if depth > 60:
             return
         role = _attr(element, "AXRole")
-        in_sidebar = in_sidebar or (role == "AXGroup" and _attr(element, "AXTitle") == "Sidebar")
+        in_sidebar = in_sidebar or (role == "AXGroup" and _attr(element, "AXTitle") == sidebar_title)
         if not in_sidebar and role == "AXStaticText":
             value = _attr(element, "AXValue")
             if isinstance(value, str) and value.strip():
@@ -120,33 +151,49 @@ def read_conversation_static_texts(app=None) -> list[str]:
     return out
 
 
-def extract_latest_response(texts: list[str], user_message: str = "") -> str:
-    """Pull the assistant's reply out of a static-text snapshot.
-
-    The reply is everything after the user's message bubble (anchored by the
-    "You said:" label), minus chrome, timestamps, and the model selector.  On
-    completion the reply carries a "Claude responded:" prefix, which is stripped.
-    """
+def extract_latest_response(
+    texts: list[str],
+    user_message: str = "",
+    user_label: str = "You said:",
+    assistant_label: str = "Assistant responded:",
+    chrome: Iterable[str] = (),
+) -> str:
+    """Pull the assistant reply out of a static-text snapshot."""
     user_message = user_message.strip()
+    chrome_set = frozenset(chrome)
     anchor = None
     for i, t in enumerate(texts):
-        if t.startswith(_USER_LABEL) or (user_message and t == user_message):
+        if t.startswith(user_label) or (user_message and t == user_message):
             anchor = i
     tail = texts[anchor + 1:] if anchor is not None else texts
 
     parts: list[str] = []
     for t in tail:
-        if t in CHROME or t.startswith(_USER_LABEL):
+        if t in chrome_set or t.startswith(user_label):
             continue
         if user_message and t == user_message:
             continue
         if _TIMESTAMP.match(t) or _MODEL_NAME.match(t):
             continue
-        # On completion an aria-label summary node ("Claude responded: <full>")
-        # appears alongside the per-sentence body nodes; skip it to avoid dupes.
-        if t.startswith(_ASSISTANT_LABEL):
+        if t.startswith(assistant_label):
             continue
         parts.append(t)
-    # Collapse all whitespace so node-boundary spacing is stable between polls
-    # (the reply is split across AXStaticText nodes that re-segment as it streams).
     return " ".join(" ".join(parts).split())
+
+
+# Claude compatibility wrappers retained for existing paths.
+def claude_pid() -> int | None:
+    return app_pid(("Claude",))
+
+
+def app_element_claude():
+    return app_element(("Claude",))
+
+
+def focus_claude_composer() -> bool:
+    return focus_composer(("Write your prompt to Claude", "Write a message…"), ("Claude",))
+
+
+def composer_value_claude() -> str | None:
+    return composer_value(("Write your prompt to Claude", "Write a message…"), ("Claude",))
+

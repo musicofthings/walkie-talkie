@@ -1,10 +1,10 @@
-"""Real-time watcher for Claude Desktop responses (macOS).
+"""Real-time watcher for desktop app responses (macOS).
 
-Polls Claude's Electron UI via the raw AX API and streams the assistant's reply
+Polls the target app's UI via the raw AX API and streams the assistant's reply
 out **sentence-by-sentence as it is generated**, so downlink TTS can start
-speaking while Claude is still writing — essential for a hands-free, two-way
-conversation.  Completion is detected via Claude's own AX status text
-("Claude finished the response") rather than a timing heuristic.
+speaking while the app is still writing — essential for a hands-free, two-way
+conversation. Completion is detected via the app's own AX status text rather
+than a timing heuristic.
 """
 
 from __future__ import annotations
@@ -14,6 +14,8 @@ import re
 from collections.abc import Awaitable, Callable
 
 import structlog
+
+from walkietalkie_agent.targets import ResponseCaptureProfile
 
 logger = structlog.get_logger(__name__)
 
@@ -30,7 +32,7 @@ def _common_prefix(a: str, b: str) -> str:
 
 
 class ResponseWatcher:
-    """Streams Claude Desktop's reply to a sink, sentence by sentence.
+    """Streams a target app's reply to a sink, sentence by sentence.
 
     ``on_text`` is awaited with each newly-completed chunk (one or more whole
     sentences).  ``on_complete`` if provided is awaited once with the full reply.
@@ -39,9 +41,11 @@ class ResponseWatcher:
     def __init__(
         self,
         on_text: Callable[[str], Awaitable[None]],
+        profile: ResponseCaptureProfile,
         on_complete: Callable[[str], Awaitable[None]] | None = None,
     ) -> None:
         self._on_text = on_text
+        self._profile = profile
         self._on_complete = on_complete
         self._user_message = ""
         self._spoken = ""  # normalized assistant text already emitted to TTS
@@ -71,11 +75,21 @@ class ResponseWatcher:
 
         while loop.time() < deadline:
             await asyncio.sleep(interval)
-            texts = await loop.run_in_executor(None, macos_ax.read_conversation_static_texts)
-            if macos_ax.STATUS_RESPONDING in texts:
+            texts = await loop.run_in_executor(
+                None,
+                macos_ax.read_conversation_static_texts,
+                self._profile.process_names,
+            )
+            if self._profile.status_responding in texts:
                 saw_responding = True
-            done = macos_ax.STATUS_DONE in texts
-            assistant = macos_ax.extract_latest_response(texts, self._user_message)
+            done = self._profile.status_done in texts
+            assistant = macos_ax.extract_latest_response(
+                texts,
+                self._user_message,
+                user_label=self._profile.user_label,
+                assistant_label=self._profile.assistant_label,
+                chrome=self._profile.chrome,
+            )
 
             await self._emit_ready_sentences(assistant)
 
@@ -84,7 +98,7 @@ class ResponseWatcher:
                 if remainder:
                     await self._on_text(remainder)
                 self._spoken = assistant
-                logger.info("response_watcher.complete", chars=len(assistant))
+                logger.info("response_watcher.complete", chars=len(assistant), status=self._profile.status_done)
                 if self._on_complete is not None:
                     await self._on_complete(assistant)
                 return

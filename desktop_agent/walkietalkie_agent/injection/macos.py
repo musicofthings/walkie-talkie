@@ -1,19 +1,18 @@
-"""macOS Claude Desktop injection via AX focus + clipboard paste.
+"""macOS desktop app injection via AX focus + clipboard paste.
 
-Claude Desktop is an Electron app: its composer is a web ``contenteditable``
-(exposed to the raw AX API as a single ``AXTextArea`` described "Write your
-prompt to Claude").  AppleScript ``keystroke`` is unreliable for unicode/long
-text, so we paste from the clipboard instead.
+The target app is usually an Electron or web-style UI: the composer is often
+exposed to the raw AX API as an ``AXTextArea`` or ``AXTextField``. AppleScript
+``keystroke`` is unreliable for unicode/long text, so we paste from the
+clipboard instead.
 
-Focus is the subtle part: Claude only auto-focuses the composer when the app is
-*switched to*.  If Claude is already frontmost (e.g. consecutive utterances) a
-plain ``activate`` is a no-op and the paste lands nowhere.  We therefore set
-``AXFocused`` on the composer element directly — coordinate-free and reliable
-whether Claude is open, minimized, quit, or already frontmost — then verify the
-paste by reading the composer's ``AXValue`` back.
+Focus is the subtle part: many agent apps only auto-focus the composer when the
+app is *switched to*. If the app is already frontmost (e.g. consecutive
+utterances) a plain ``activate`` can be a no-op and the paste lands nowhere.
+We therefore set ``AXFocused`` on the composer element directly — coordinate-
+free and reliable whether the app is open, minimized, quit, or already
+frontmost — then verify the paste by reading the composer's ``AXValue`` back.
 
-Pasting appends to whatever conversation/tab is active and preserves context,
-which the response-watcher TTS loop depends on.
+Pasting appends to whatever conversation/tab is active and preserves context.
 """
 
 from __future__ import annotations
@@ -25,15 +24,15 @@ import structlog
 
 from walkietalkie_agent import macos_ax
 from walkietalkie_agent.injection.base import BaseInjector
+from walkietalkie_agent.targets import DesktopTargetProfile
 
 logger = structlog.get_logger(__name__)
 
-# Foreground Claude and restore any minimized window. {delay} adapts to cold start.
 _FOREGROUND_SCRIPT = '''\
-tell application "Claude" to activate
+tell application "{app_name}" to activate
 delay {delay}
 tell application "System Events"
-    tell process "Claude"
+    tell process "{process_name}"
         try
             repeat with w in windows
                 if value of attribute "AXMinimized" of w is true then
@@ -52,7 +51,10 @@ end tell'''
 
 
 class MacOSInjector(BaseInjector):
-    """Inject text into Claude Desktop on macOS via AX focus + clipboard paste."""
+    """Inject text into the active target app on macOS via AX focus + paste."""
+
+    def __init__(self, target: DesktopTargetProfile) -> None:
+        self._target = target
 
     def inject(self, text: str, press_enter: bool = True) -> None:
         saved_clipboard = self._read_clipboard()
@@ -61,21 +63,37 @@ class MacOSInjector(BaseInjector):
         try:
             delay = "2.5" if cold_start else "0.45"
             subprocess.run(
-                ["osascript", "-e", _FOREGROUND_SCRIPT.format(delay=delay)],
-                check=True, capture_output=True,
+                [
+                    "osascript",
+                    "-e",
+                    _FOREGROUND_SCRIPT.format(
+                        app_name=self._target.app_name,
+                        process_name=self._target.process_names[0],
+                        delay=delay,
+                    ),
+                ],
+                check=True,
+                capture_output=True,
             )
-            if not macos_ax.focus_composer():
-                logger.warning("injection.composer_not_found")
+            if not macos_ax.focus_composer(self._target.composer_descriptions, self._target.process_names):
+                logger.warning("injection.composer_not_found", target=self._target.display_name)
             time.sleep(0.1)
 
-            enter_line = '\n    delay 0.15\n    key code 36' if press_enter else ''
+            enter_line = "\n    delay 0.15\n    key code 36" if press_enter else ""
             subprocess.run(
                 ["osascript", "-e", _PASTE_SCRIPT.format(enter=enter_line)],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             if not press_enter:
                 self._verify_pasted(text)
-            logger.info("injection.ok", chars=len(text), pressed_enter=press_enter, cold_start=cold_start)
+            logger.info(
+                "injection.ok",
+                chars=len(text),
+                pressed_enter=press_enter,
+                cold_start=cold_start,
+                target=self._target.display_name,
+            )
         except subprocess.CalledProcessError as exc:
             stderr = exc.stderr.decode(errors="replace") if exc.stderr else ""
             if "1002" in stderr or "not allowed" in stderr.lower():
@@ -85,10 +103,15 @@ class MacOSInjector(BaseInjector):
                     "   Add Terminal (or your shell app) to the allowed list.\n",
                     flush=True,
                 )
-                logger.error("injection.accessibility_denied")
+                logger.error("injection.accessibility_denied", target=self._target.display_name)
             else:
-                logger.error("injection.failed", stderr=stderr, returncode=exc.returncode)
-            raise  # re-raise so bridge.py can log and still send transcript to mobile
+                logger.error(
+                    "injection.failed",
+                    stderr=stderr,
+                    returncode=exc.returncode,
+                    target=self._target.display_name,
+                )
+            raise
         finally:
             self._restore_clipboard(saved_clipboard)
 
@@ -99,16 +122,15 @@ class MacOSInjector(BaseInjector):
         if text.strip() and text.strip() not in value:
             logger.warning("injection.verify_failed", composer_chars=len(value))
 
-    @staticmethod
-    def _ensure_running() -> bool:
-        """Launch Claude if it isn't running. Returns True if a cold start occurred."""
-        if macos_ax.claude_pid() is not None:
+    def _ensure_running(self) -> bool:
+        """Launch the target app if it isn't running. Returns True on cold start."""
+        if macos_ax.app_pid(self._target.process_names) is not None:
             return False
-        logger.info("injection.launching_claude")
-        subprocess.run(["open", "-a", "Claude"])
-        for _ in range(20):  # wait for Electron cold start (~up to 6 s)
+        logger.info("injection.launching_app", target=self._target.display_name)
+        subprocess.run(["open", "-a", self._target.app_name])
+        for _ in range(20):  # wait for Electron/WebView cold start (~up to 6 s)
             time.sleep(0.3)
-            if macos_ax.claude_pid() is not None:
+            if macos_ax.app_pid(self._target.process_names) is not None:
                 break
         return True
 

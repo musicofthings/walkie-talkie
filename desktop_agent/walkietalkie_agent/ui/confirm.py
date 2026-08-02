@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 
-def confirm_injection(transcript: str, keyword: str) -> bool:
+def confirm_injection(transcript: str, keyword: str, target_label: str = "Claude") -> bool:
     """Display modal confirmation, returning True if user approves."""
     root = tk.Tk()
     root.withdraw()
@@ -15,7 +15,7 @@ def confirm_injection(transcript: str, keyword: str) -> bool:
         message=(
             f"Detected risky keyword '{keyword}'.\n\n"
             f"Transcript:\n{transcript}\n\n"
-            "Inject into Claude anyway?"
+            f"Inject into {target_label} anyway?"
         ),
     )
     root.destroy()

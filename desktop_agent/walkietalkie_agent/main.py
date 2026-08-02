@@ -15,8 +15,10 @@ from walkietalkie_agent.pipeline.bridge import VoiceBridgePipeline
 from walkietalkie_agent.risk.filter import RiskFilter
 from walkietalkie_agent.security.pairing import PairingManager
 from walkietalkie_agent.security.pairing_qr import build_pairing_payload, render_pairing_qr
+from walkietalkie_agent.targets import get_desktop_target
 from walkietalkie_agent.stt.transcriber import WhisperTranscriber
 from walkietalkie_agent.ui.tray import start_tray
+from walkietalkie_agent.response_watcher import ResponseWatcher
 
 logger = structlog.get_logger(__name__)
 
@@ -26,6 +28,8 @@ async def _async_main() -> None:
     logger.info("agent.starting", env=settings.env, debug=settings.debug)
     start_tray()
 
+    target = get_desktop_target(settings.desktop_target)
+    logger.info("agent.target", target=target.key, app_name=target.app_name)
     pairing = PairingManager(token_ttl_seconds=settings.token_ttl_seconds)
 
     payload = build_pairing_payload(settings, pairing)
@@ -46,10 +50,17 @@ async def _async_main() -> None:
         language=settings.language,
     )
     risk_filter = RiskFilter(settings.action_log_path, settings.require_confirmation)
-    injector = get_injector()
     server = AudioIngressServer(pairing, on_audio=lambda _: None, on_flush=None)
+    injector = get_injector(settings.desktop_target)
+    response_watcher = (
+        ResponseWatcher(server.send_tts, target.response_capture)
+        if target.response_capture is not None
+        else None
+    )
     pipeline = VoiceBridgePipeline(
         settings, transcriber, risk_filter, injector,
+        target_label=target.display_name,
+        response_watcher=response_watcher,
         send_tts=server.send_tts,
         send_transcript=server.send_transcript,
     )

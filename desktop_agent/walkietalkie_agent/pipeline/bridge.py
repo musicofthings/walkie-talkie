@@ -42,6 +42,8 @@ class VoiceBridgePipeline:
         transcriber: WhisperTranscriber,
         risk_filter: RiskFilter,
         injector: BaseInjector,
+        target_label: str = "Claude Desktop",
+        response_watcher: ResponseWatcher | None = None,
         send_tts: SendTtsCallback | None = None,
         send_transcript: SendTranscriptCallback | None = None,
     ) -> None:
@@ -49,12 +51,13 @@ class VoiceBridgePipeline:
         self._transcriber = transcriber
         self._risk_filter = risk_filter
         self._injector = injector
+        self._target_label = target_label
         self._send_tts = send_tts
         self._send_transcript = send_transcript
         self._audio_buffer = bytearray()
         self._pending_text: list[str] = []
-        # The watcher streams Claude's reply to send_tts sentence-by-sentence.
-        self._response_watcher = ResponseWatcher(self._send_tts) if send_tts else None
+        # The watcher streams the target app's reply to send_tts sentence-by-sentence.
+        self._response_watcher = response_watcher
 
     async def handle_audio(self, pcm_bytes: bytes) -> None:
         """Buffer incoming PCM. Transcribe rolling chunks but defer injection."""
@@ -111,7 +114,10 @@ class VoiceBridgePipeline:
             approved = await loop.run_in_executor(
                 None,
                 functools.partial(
-                    confirm_injection, combined_text, decision.keyword or "unknown",
+                    confirm_injection,
+                    combined_text,
+                    decision.keyword or "unknown",
+                    self._target_label,
                 ),
             )
             self._risk_filter.append_audit(
@@ -128,7 +134,10 @@ class VoiceBridgePipeline:
 
         # Send transcript to mobile immediately — before injection — so the
         # user's bubble appears regardless of whether injection succeeds.
-        print(f"[walkietalkie] _process_chunk: scheduling send_transcript, send_fn={self._send_transcript is not None}", flush=True)
+        print(
+            f"[walkietalkie] _process_chunk: scheduling send_transcript, send_fn={self._send_transcript is not None}",
+            flush=True,
+        )
         if self._send_transcript is not None:
             asyncio.create_task(self._send_transcript(combined_text))
 
