@@ -3,16 +3,16 @@ import 'screens/push_to_talk_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MozhiApp());
+  runApp(const WalkieTalkieApp());
 }
 
-class MozhiApp extends StatelessWidget {
-  const MozhiApp({super.key});
+class WalkieTalkieApp extends StatelessWidget {
+  const WalkieTalkieApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mozhi',
+      title: 'WalkieTalkie',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorSchemeSeed: Colors.teal,

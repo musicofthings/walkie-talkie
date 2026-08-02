@@ -14,7 +14,7 @@ def start_tray() -> None:
         from PIL import Image
 
         image = Image.new("RGB", (16, 16), "#3c7")
-        icon = pystray.Icon("Mozhi", image=image, title="Mozhi Agent")
+        icon = pystray.Icon("WalkieTalkie", image=image, title="WalkieTalkie Agent")
         icon.run_detached()
         logger.info("tray.started")
     except Exception as exc:  # pylint: disable=broad-except

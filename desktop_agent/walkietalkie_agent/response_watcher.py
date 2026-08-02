@@ -63,7 +63,7 @@ class ResponseWatcher:
 
     async def _poll(self, interval: float, timeout_secs: int) -> None:
         # Imported lazily so non-macOS imports of this module don't fail.
-        from mozhi_agent import macos_ax
+        from walkietalkie_agent import macos_ax
 
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout_secs

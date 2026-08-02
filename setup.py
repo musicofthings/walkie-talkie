@@ -1,9 +1,9 @@
 from setuptools import setup
 
-APP = ['desktop_agent/mozhi_agent/main.py']
+APP = ['desktop_agent/walkietalkie_agent/main.py']
 OPTIONS = {
     'argv_emulation': False,
-    'plist': {'CFBundleName': 'MozhiAgent'},
+    'plist': {'CFBundleName': 'WalkieTalkieAgent'},
 }
 
 setup(

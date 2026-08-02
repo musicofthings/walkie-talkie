@@ -1,7 +1,7 @@
-# CLAUDE.md — Mozhi Session Handover
+# CLAUDE.md — WalkieTalkie Session Handover
 
 ## Project Purpose
-Mozhi is a production-focused, cross-platform voice bridge that enables users to speak into a mobile app and inject the resulting transcript into Claude Desktop Cowork input with low latency, local speech recognition, and strong transport security.
+WalkieTalkie is a production-focused, cross-platform voice bridge that enables users to speak into a mobile app and inject the resulting transcript into Claude Desktop Cowork input with low latency, local speech recognition, and strong transport security.
 
 Primary goals:
 - No cloud STT dependency (local Faster-Whisper on desktop)
@@ -19,7 +19,7 @@ Primary goals:
 - Comprehensive `.gitignore` covering Python, Flutter, IDE, and platform artifacts.
 
 ### 2) Desktop Agent (Python 3.11+)
-Fully implemented modular desktop service under `desktop_agent/mozhi_agent`:
+Fully implemented modular desktop service under `desktop_agent/walkietalkie_agent`:
 
 - **Configuration** (`config.py`)
   - Environment-driven settings via `pydantic-settings`.
@@ -32,7 +32,7 @@ Fully implemented modular desktop service under `desktop_agent/mozhi_agent`:
   - All Pydantic BaseModel: `PairingRequest`, `PairingResponse`, `EncryptedAudioPacket`, `TranscriptEvent`, `RiskDecision`, `ActionLogEntry`.
 
 - **Secure Pairing + Crypto** (`security/pairing.py`)
-  - X25519 key agreement with HKDF-SHA256 key derivation (`info=b"mozhi-audio-transport"`).
+  - X25519 key agreement with HKDF-SHA256 key derivation (`info=b"walkietalkie-audio-transport"`).
   - Short-lived session tokens with expiry validation.
   - AES-GCM encrypt/decrypt helpers (`TransportCrypto`).
 
@@ -123,7 +123,7 @@ Fully implemented mobile client under `mobile_app/`:
 
 - **Crypto Helper** (`services/crypto_helper.dart`)
   - X25519 key pair generation.
-  - HKDF-SHA256 key derivation (matching desktop `info=b"mozhi-audio-transport"`).
+  - HKDF-SHA256 key derivation (matching desktop `info=b"walkietalkie-audio-transport"`).
   - AES-GCM-256 encryption with 12-byte nonce.
 
 - **Session Model + Store** (`models/pairing_session.dart`, `services/session_store.dart`)
@@ -222,7 +222,7 @@ Fully implemented mobile client under `mobile_app/`:
 - **Future direction (per project owner):** moving STT to a Gemini real-time, multilingual voice model — likely Gemini Live, which handles bidirectional streaming natively and would supersede the Whisper + AX-scrape + TTS pipeline. Don't over-invest in the AX approach.
 - `poll_interval` (default 0.5s) in `ResponseWatcher` trades downlink latency for CPU; AX read is ~0.35s so 0.3s is feasible.
 - Priority should also include hardening (heartbeat, reconnect, token refresh) and test coverage.
-- HKDF info string `"mozhi-audio-transport"` MUST match between desktop and mobile.
+- HKDF info string `"walkietalkie-audio-transport"` MUST match between desktop and mobile.
 - Desktop uses `qrcode[pil]` — ensure it is installed (`pip install qrcode[pil]`). Install macOS extras for AX: `pip install -e .[macos]`.
 - Mobile uses `record` plugin — requires microphone permission on iOS/Android. `TtsService` uses queue mode (`setQueueMode(1)`) so streamed sentences play in order; `flush()` interrupts for a new turn.
 - Keep all new modules typed, async where applicable, and with structured logs.

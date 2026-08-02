@@ -11,7 +11,7 @@ def confirm_injection(transcript: str, keyword: str) -> bool:
     root = tk.Tk()
     root.withdraw()
     approved = messagebox.askyesno(
-        title="Mozhi Risk Guard",
+        title="WalkieTalkie Risk Guard",
         message=(
             f"Detected risky keyword '{keyword}'.\n\n"
             f"Transcript:\n{transcript}\n\n"

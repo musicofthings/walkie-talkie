@@ -7,8 +7,8 @@ from pathlib import Path
 
 import qrcode
 
-from mozhi_agent.config import AgentSettings
-from mozhi_agent.security.pairing import PairingManager
+from walkietalkie_agent.config import AgentSettings
+from walkietalkie_agent.security.pairing import PairingManager
 
 
 def build_pairing_payload(settings: AgentSettings, pairing: PairingManager) -> dict[str, str | int]:

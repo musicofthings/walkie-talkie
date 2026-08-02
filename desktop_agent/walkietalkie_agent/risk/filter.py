@@ -6,7 +6,7 @@ import re
 import structlog
 from pathlib import Path
 
-from mozhi_agent.models import ActionLogEntry, RiskDecision
+from walkietalkie_agent.models import ActionLogEntry, RiskDecision
 
 logger = structlog.get_logger(__name__)
 

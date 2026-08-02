@@ -9,13 +9,13 @@ from datetime import UTC, datetime
 
 import structlog
 
-from mozhi_agent.config import AgentSettings
-from mozhi_agent.injection.base import BaseInjector
-from mozhi_agent.models import ActionLogEntry
-from mozhi_agent.response_watcher import ResponseWatcher
-from mozhi_agent.risk.filter import RiskFilter
-from mozhi_agent.stt.transcriber import WhisperTranscriber
-from mozhi_agent.ui.confirm import confirm_injection
+from walkietalkie_agent.config import AgentSettings
+from walkietalkie_agent.injection.base import BaseInjector
+from walkietalkie_agent.models import ActionLogEntry
+from walkietalkie_agent.response_watcher import ResponseWatcher
+from walkietalkie_agent.risk.filter import RiskFilter
+from walkietalkie_agent.stt.transcriber import WhisperTranscriber
+from walkietalkie_agent.ui.confirm import confirm_injection
 
 logger = structlog.get_logger(__name__)
 
@@ -128,7 +128,7 @@ class VoiceBridgePipeline:
 
         # Send transcript to mobile immediately — before injection — so the
         # user's bubble appears regardless of whether injection succeeds.
-        print(f"[mozhi] _process_chunk: scheduling send_transcript, send_fn={self._send_transcript is not None}", flush=True)
+        print(f"[walkietalkie] _process_chunk: scheduling send_transcript, send_fn={self._send_transcript is not None}", flush=True)
         if self._send_transcript is not None:
             asyncio.create_task(self._send_transcript(combined_text))
 

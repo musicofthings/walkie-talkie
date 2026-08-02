@@ -7,13 +7,13 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mozhi_mobile/main.dart';
+import 'package:walkietalkie_mobile/main.dart';
 
 void main() {
   testWidgets('App renders push-to-talk screen', (WidgetTester tester) async {
-    await tester.pumpWidget(const MozhiApp());
+    await tester.pumpWidget(const WalkieTalkieApp());
 
-    expect(find.text('Mozhi Push-to-Talk'), findsOneWidget);
+    expect(find.text('WalkieTalkie Push-to-Talk'), findsOneWidget);
     expect(find.text('Press and hold to stream audio securely'), findsOneWidget);
     expect(find.text('Not paired — scan desktop QR'), findsOneWidget);
     expect(find.text('Pair Desktop via QR'), findsOneWidget);

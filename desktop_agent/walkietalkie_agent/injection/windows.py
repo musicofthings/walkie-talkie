@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pywinauto import Application, keyboard
 
-from mozhi_agent.injection.base import BaseInjector
+from walkietalkie_agent.injection.base import BaseInjector
 
 
 class WindowsInjector(BaseInjector):

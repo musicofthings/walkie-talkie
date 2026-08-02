@@ -1,4 +1,4 @@
-"""Entrypoint for Mozhi desktop agent service."""
+"""Entrypoint for WalkieTalkie desktop agent service."""
 
 from __future__ import annotations
 
@@ -7,16 +7,16 @@ from pathlib import Path
 
 import structlog
 
-from mozhi_agent.audio.server import AudioIngressServer, run_server
-from mozhi_agent.config import settings
-from mozhi_agent.injection.factory import get_injector
-from mozhi_agent.observability.logging_utils import configure_logging
-from mozhi_agent.pipeline.bridge import VoiceBridgePipeline
-from mozhi_agent.risk.filter import RiskFilter
-from mozhi_agent.security.pairing import PairingManager
-from mozhi_agent.security.pairing_qr import build_pairing_payload, render_pairing_qr
-from mozhi_agent.stt.transcriber import WhisperTranscriber
-from mozhi_agent.ui.tray import start_tray
+from walkietalkie_agent.audio.server import AudioIngressServer, run_server
+from walkietalkie_agent.config import settings
+from walkietalkie_agent.injection.factory import get_injector
+from walkietalkie_agent.observability.logging_utils import configure_logging
+from walkietalkie_agent.pipeline.bridge import VoiceBridgePipeline
+from walkietalkie_agent.risk.filter import RiskFilter
+from walkietalkie_agent.security.pairing import PairingManager
+from walkietalkie_agent.security.pairing_qr import build_pairing_payload, render_pairing_qr
+from walkietalkie_agent.stt.transcriber import WhisperTranscriber
+from walkietalkie_agent.ui.tray import start_tray
 
 logger = structlog.get_logger(__name__)
 

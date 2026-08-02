@@ -23,8 +23,8 @@ import time
 
 import structlog
 
-from mozhi_agent import macos_ax
-from mozhi_agent.injection.base import BaseInjector
+from walkietalkie_agent import macos_ax
+from walkietalkie_agent.injection.base import BaseInjector
 
 logger = structlog.get_logger(__name__)
 

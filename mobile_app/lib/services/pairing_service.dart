@@ -47,7 +47,7 @@ class PairingService {
         'type': 'pair',
         'payload': {
           'device_id': _deviceId(),
-          'device_name': 'Mozhi Mobile',
+          'device_name': 'WalkieTalkie Mobile',
           'client_public_key': clientPublicKeyB64,
         },
       }));
@@ -114,5 +114,5 @@ class PairingService {
   }
 
   String _deviceId() =>
-      'mozhi-mobile-${DateTime.now().millisecondsSinceEpoch}';
+      'walkie-talkie-${DateTime.now().millisecondsSinceEpoch}';
 }

@@ -30,10 +30,10 @@ class CryptoHelper {
     );
     final sharedSecretBytes = await sharedSecret.extractBytes();
 
-    // HKDF derivation — MUST match desktop info=b"mozhi-audio-transport"
+    // HKDF derivation — MUST match desktop info=b"walkietalkie-audio-transport"
     final derived = await _hkdf.deriveKey(
       secretKey: SecretKey(sharedSecretBytes),
-      info: utf8.encode('mozhi-audio-transport'),
+      info: utf8.encode('walkietalkie-audio-transport'),
       nonce: const <int>[], // empty salt — matches desktop salt=None
     );
     return derived;

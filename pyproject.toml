@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mozhi-desktop-agent"
+name = "walkie-talkie-desktop-agent"
 version = "0.1.0"
 description = "Production-grade desktop voice bridge for Claude Desktop"
 requires-python = ">=3.11"
@@ -25,7 +25,7 @@ macos = ["pyobjc-core>=10.2", "pyobjc-framework-Cocoa>=10.2", "pyobjc-framework-
 tray = ["pystray>=0.19", "Pillow>=10.2"]
 
 [project.scripts]
-mozhi-agent = "mozhi_agent.main:run"
+walkie-talkie-agent = "walkietalkie_agent.main:run"
 
 [tool.setuptools]
 package-dir = {"" = "desktop_agent"}

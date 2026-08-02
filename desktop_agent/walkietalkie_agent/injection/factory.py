@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import platform
 
-from mozhi_agent.injection.base import BaseInjector
+from walkietalkie_agent.injection.base import BaseInjector
 
 
 def get_injector() -> BaseInjector:
@@ -15,11 +15,11 @@ def get_injector() -> BaseInjector:
     """
     system = platform.system().lower()
     if system == "windows":
-        from mozhi_agent.injection.windows import WindowsInjector
+        from walkietalkie_agent.injection.windows import WindowsInjector
 
         return WindowsInjector()
     if system == "darwin":
-        from mozhi_agent.injection.macos import MacOSInjector
+        from walkietalkie_agent.injection.macos import MacOSInjector
 
         return MacOSInjector()
     raise NotImplementedError(f"Unsupported platform for input injection: {system}")

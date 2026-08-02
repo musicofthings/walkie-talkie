@@ -1,4 +1,4 @@
-# Mozhi
+# WalkieTalkie
 
 The first **two-way conversational** voice bridge for remote-controlling Claude Desktop, hands-free (on the go, in the car). It captures speech on mobile, streams securely to desktop, transcribes locally with Faster-Whisper, risk-filters content, injects text into the active Claude Desktop tab, and **streams Claude's reply back as speech sentence-by-sentence** as it is generated.
 
@@ -7,7 +7,7 @@ The first **two-way conversational** voice bridge for remote-controlling Claude 
 ```text
 .
 ├── desktop_agent/
-│   └── mozhi_agent/
+│   └── walkietalkie_agent/
 │       ├── audio/
 │       ├── injection/         # macOS: AX focus + clipboard paste; Windows: pywinauto
 │       ├── observability/
@@ -48,7 +48,7 @@ The first **two-way conversational** voice bridge for remote-controlling Claude 
 3. Copy `.env.example` to `.env` and tune values.
 4. Run agent:
    ```bash
-   mozhi-agent
+   walkietalkie-agent
    ```
 
 > **macOS:** install the platform extras for text injection and reply capture (raw Accessibility API):

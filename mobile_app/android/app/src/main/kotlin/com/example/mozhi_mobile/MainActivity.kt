@@ -1,4 +1,4 @@
-package com.example.mozhi_mobile
+package com.example.walkietalkie_mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

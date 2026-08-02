@@ -10,7 +10,7 @@ import numpy as np
 import structlog
 from faster_whisper import WhisperModel
 
-from mozhi_agent.models import TranscriptEvent
+from walkietalkie_agent.models import TranscriptEvent
 
 logger = structlog.get_logger(__name__)
 

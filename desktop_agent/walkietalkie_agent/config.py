@@ -1,4 +1,4 @@
-"""Configuration management for Mozhi Desktop Agent."""
+"""Configuration management for WalkieTalkie Desktop Agent."""
 
 from __future__ import annotations
 

@@ -49,7 +49,7 @@ class PairingManager:
             algorithm=hashes.SHA256(),
             length=32,
             salt=None,
-            info=b"mozhi-audio-transport",
+            info=b"walkietalkie-audio-transport",
         ).derive(shared_secret)
         token = secrets.token_urlsafe(32)
         session = SessionContext(

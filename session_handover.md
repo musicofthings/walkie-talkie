@@ -14,13 +14,13 @@ project start
 run /context-health to verify setup
 
 ## Modified files
-desktop_agent/mozhi_agent/audio/server.py
-desktop_agent/mozhi_agent/injection/macos.py
-desktop_agent/mozhi_agent/main.py
-desktop_agent/mozhi_agent/pipeline/bridge.py
-desktop_agent/mozhi_agent/risk/filter.py
-desktop_agent/mozhi_agent/security/pairing.py
-desktop_agent/mozhi_agent/stt/transcriber.py
+desktop_agent/walkietalkie_agent/audio/server.py
+desktop_agent/walkietalkie_agent/injection/macos.py
+desktop_agent/walkietalkie_agent/main.py
+desktop_agent/walkietalkie_agent/pipeline/bridge.py
+desktop_agent/walkietalkie_agent/risk/filter.py
+desktop_agent/walkietalkie_agent/security/pairing.py
+desktop_agent/walkietalkie_agent/stt/transcriber.py
 mobile_app/ios/Runner.xcodeproj/project.pbxproj
 mobile_app/ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme
 mobile_app/ios/Runner/Info.plist

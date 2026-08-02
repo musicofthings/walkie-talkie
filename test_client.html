@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Mozhi Desktop Agent — Test Client</title>
+  <title>WalkieTalkie Desktop Agent — Test Client</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0d1117; color: #e6edf3; font-family: monospace; font-size: 14px; padding: 24px; }
@@ -37,7 +37,7 @@
   </style>
 </head>
 <body>
-<h1>Mozhi Desktop Agent — Browser Test Client</h1>
+<h1>WalkieTalkie Desktop Agent — Browser Test Client</h1>
 
 <div class="row">
   <label>WS URL</label>
@@ -101,11 +101,11 @@ async function deriveAES(clientSecretKey, desktopPubB64) {
   const desktopPubBytes = b64url.dec(desktopPubB64);
   // X25519 DH: nacl.scalarMult(mySecretKey, theirPublicKey) → 32-byte shared secret
   const sharedSecret = nacl.scalarMult(clientSecretKey, desktopPubBytes);
-  // HKDF-SHA256 via SubtleCrypto, info = "mozhi-audio-transport"
+  // HKDF-SHA256 via SubtleCrypto, info = "walkietalkie-audio-transport"
   const hkdfKey = await crypto.subtle.importKey('raw', sharedSecret, 'HKDF', false, ['deriveKey']);
   return crypto.subtle.deriveKey(
     { name:'HKDF', hash:'SHA-256', salt: new Uint8Array(0),
-      info: new TextEncoder().encode('mozhi-audio-transport') },
+      info: new TextEncoder().encode('walkietalkie-audio-transport') },
     hkdfKey,
     { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
   );

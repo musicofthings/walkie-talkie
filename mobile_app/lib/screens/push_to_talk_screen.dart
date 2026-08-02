@@ -198,7 +198,7 @@ class _PushToTalkScreenState extends State<PushToTalkScreen>
           ),
           const SizedBox(width: 8),
           Text(
-            _paired ? 'Mozhi · Connected' : 'Mozhi',
+            _paired ? 'WalkieTalkie · Connected' : 'WalkieTalkie',
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
           ),
         ],

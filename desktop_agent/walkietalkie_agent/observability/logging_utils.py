@@ -1,4 +1,4 @@
-"""Structured logging setup for the Mozhi agent."""
+"""Structured logging setup for the WalkieTalkie agent."""
 
 from __future__ import annotations
 

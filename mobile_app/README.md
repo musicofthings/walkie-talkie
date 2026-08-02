@@ -1,4 +1,4 @@
-# mozhi_mobile
+# walkietalkie_mobile
 
 A new Flutter project.
 
