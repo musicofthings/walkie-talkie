@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>WalkieTalkie Desktop Agent — Test Client</title>
+  <title>WalkieTalkie Desktop Agent — Browser Smoke Client</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0d1117; color: #e6edf3; font-family: monospace; font-size: 14px; padding: 24px; }
@@ -37,7 +37,13 @@
   </style>
 </head>
 <body>
-<h1>WalkieTalkie Desktop Agent — Browser Test Client</h1>
+<h1>WalkieTalkie Desktop Agent — Browser Smoke Client</h1>
+
+<p style="color:#8b949e; margin: 0 0 16px 0; max-width: 760px;">
+  Companion client for manual transport checks. For automated validation, run
+  <code>python3 scripts/smoke_harness.py</code> to exercise pairing, encrypted
+  audio handling, mock STT, risk filtering, and injection wiring.
+</p>
 
 <div class="row">
   <label>WS URL</label>

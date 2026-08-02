@@ -45,7 +45,7 @@ The first **two-way conversational** voice bridge for remote-controlling Claude 
    pip install -U pip
    pip install -e .[tray]
    ```
-3. Copy `.env.example` to `.env` and tune values.
+3. Copy `.env.example` to `.env` and tune values. Environment keys now use the `WALKIETALKIE_` prefix.
 4. Run agent:
    ```bash
    walkietalkie-agent
@@ -67,6 +67,16 @@ The first **two-way conversational** voice bridge for remote-controlling Claude 
    flutter pub get
    flutter run
    ```
+
+## Automated Smoke Harness
+
+Run the local harness to verify pairing, transport crypto, STT, risk filtering, and injection wiring without starting real devices:
+
+```bash
+python3 scripts/smoke_harness.py
+```
+
+It uses mocked STT/injection components so it is fast, deterministic, and safe to run on a development machine.
 
 ## Secure Pairing Flow
 
