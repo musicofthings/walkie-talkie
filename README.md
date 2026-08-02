@@ -48,6 +48,7 @@ For the GitHub Pages landing page, see [index.html](./index.html).
    pip install -e .[tray]
    ```
 3. Copy `.env.example` to `.env` and tune values. Environment keys now use the `WALKIETALKIE_` prefix.
+   - `WALKIETALKIE_SURFACE_KIND=desktop|cli`
    - `WALKIETALKIE_DESKTOP_TARGET=claude|chatgpt|codex|cursor`
 4. Run agent:
    ```bash
@@ -165,6 +166,18 @@ The desktop injector is target-aware on macOS and Windows. Start with:
 - `chatgpt` for ChatGPT Desktop
 - `codex` for Codex Desktop
 - `cursor` for Cursor
+
+## CLI Targets
+
+Set `WALKIETALKIE_SURFACE_KIND=cli` to route prompts through a command-line adapter.
+The initial CLI profiles are:
+
+- `claude`
+- `chatgpt`
+- `codex`
+- `cursor`
+
+If your local command names differ, update the target profile definitions before use.
 
 ## Phase 2 — Bidirectional voice (status)
 

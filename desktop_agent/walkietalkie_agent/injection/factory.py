@@ -5,15 +5,20 @@ from __future__ import annotations
 import platform
 
 from walkietalkie_agent.injection.base import BaseInjector
+from walkietalkie_agent.cli_targets import get_cli_target
+from walkietalkie_agent.injection.cli import CliInjector
 from walkietalkie_agent.targets import get_desktop_target
 
 
-def get_injector(target_name: str) -> BaseInjector:
+def get_injector(target_name: str, surface_kind: str = "desktop") -> BaseInjector:
     """Return a supported platform injector instance.
 
     Platform-specific imports are deferred to avoid ImportError on
     systems where the other platform's dependencies are absent.
     """
+    if surface_kind == "cli":
+        return CliInjector(get_cli_target(target_name))
+
     target = get_desktop_target(target_name)
     system = platform.system().lower()
     if system == "windows":
