@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class AgentSettings(BaseSettings):
     """Runtime settings loaded from environment variables and `.env`."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="MOZHI_", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", env_prefix="WALKIETALKIE_", extra="ignore")
 
     env: str = "development"
     log_level: str = "INFO"
