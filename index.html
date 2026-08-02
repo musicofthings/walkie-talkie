@@ -6,22 +6,23 @@
   <title>WalkieTalkie</title>
   <style>
     :root {
-      --bg: #0b1020;
-      --panel: #11182e;
-      --panel-2: #0f1528;
-      --text: #e8eefc;
-      --muted: #9db0d0;
-      --accent: #66d9ff;
-      --accent-2: #7cda9b;
-      --border: rgba(255,255,255,0.08);
+      --bg: #f7f9fc;
+      --panel: #ffffff;
+      --panel-2: #f2f6fb;
+      --text: #102033;
+      --muted: #58667a;
+      --accent: #2363eb;
+      --accent-2: #0f9d58;
+      --border: rgba(16, 32, 51, 0.10);
+      --shadow: 0 18px 50px rgba(16, 32, 51, 0.08);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background:
-        radial-gradient(circle at top, rgba(102, 217, 255, 0.18), transparent 34%),
-        linear-gradient(180deg, #0b1020 0%, #090d18 100%);
+        radial-gradient(circle at top, rgba(35, 99, 235, 0.10), transparent 34%),
+        linear-gradient(180deg, #f8fbff 0%, #edf3fb 100%);
       color: var(--text);
       line-height: 1.55;
     }
@@ -41,7 +42,8 @@
       border: 1px solid var(--border);
       border-radius: 999px;
       color: var(--muted);
-      background: rgba(255,255,255,0.03);
+      background: rgba(255,255,255,0.75);
+      backdrop-filter: blur(8px);
       width: fit-content;
       font-size: 13px;
     }
@@ -64,11 +66,11 @@
       margin-top: 28px;
     }
     .card {
-      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03));
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
       border: 1px solid var(--border);
       border-radius: 18px;
       padding: 22px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.22);
+      box-shadow: var(--shadow);
     }
     .card h2, .card h3 { margin-top: 0; }
     .span-7 { grid-column: span 7; }
@@ -79,12 +81,12 @@
     .pill {
       padding: 7px 12px;
       border-radius: 999px;
-      background: rgba(102, 217, 255, 0.12);
-      border: 1px solid rgba(102, 217, 255, 0.18);
-      color: #d7f5ff;
+      background: rgba(35, 99, 235, 0.08);
+      border: 1px solid rgba(35, 99, 235, 0.16);
+      color: #133a8d;
       font-size: 13px;
     }
-    .pill.good { background: rgba(124, 218, 155, 0.12); border-color: rgba(124, 218, 155, 0.18); }
+    .pill.good { background: rgba(15, 157, 88, 0.08); border-color: rgba(15, 157, 88, 0.16); color: #0d6a3b; }
     .list { margin: 12px 0 0; padding-left: 20px; color: var(--muted); }
     .list li { margin: 8px 0; }
     .steps { margin: 0; padding-left: 20px; color: var(--muted); }
@@ -93,12 +95,12 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
     pre {
-      background: #08101d;
+      background: #eef3fb;
       border: 1px solid var(--border);
       padding: 16px;
       border-radius: 14px;
       overflow: auto;
-      color: #d8e7ff;
+      color: #15324d;
       margin: 16px 0 0;
     }
     .footer {
@@ -113,13 +115,48 @@
       margin-top: 14px;
     }
     .kpi div {
-      background: rgba(255,255,255,0.04);
+      background: rgba(255,255,255,0.72);
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 14px;
     }
-    .kpi strong { display: block; font-size: 20px; margin-bottom: 4px; }
+    .kpi strong { display: block; font-size: 20px; margin-bottom: 4px; color: var(--accent); }
     .muted { color: var(--muted); }
+    .hero-panel {
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: rgba(255,255,255,0.75);
+      box-shadow: var(--shadow);
+    }
+    .callout {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 16px;
+      border-radius: 14px;
+      background: rgba(35, 99, 235, 0.06);
+      border: 1px solid rgba(35, 99, 235, 0.12);
+      color: var(--text);
+      margin-top: 16px;
+    }
+    .callout strong { display: block; margin-bottom: 2px; }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      margin-top: 6px;
+      flex: 0 0 auto;
+      box-shadow: 0 0 0 6px rgba(35, 99, 235, 0.12);
+    }
+    .section-label {
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
     @media (max-width: 900px) {
       .span-7, .span-5, .span-6, .span-12 { grid-column: span 12; }
       .kpi { grid-template-columns: 1fr; }
@@ -128,25 +165,35 @@
 </head>
 <body>
   <main class="wrap">
-    <section class="hero">
-      <div class="eyebrow">WalkieTalkie · secure voice bridge for Claude Desktop</div>
-      <h1>Speak on mobile.<br>Inject on desktop.<br>Hear Claude reply back.</h1>
-      <p class="lede">
-        WalkieTalkie is a production-focused, cross-platform voice bridge that captures speech on a mobile device,
-        encrypts it end-to-end, transcribes locally on desktop, applies a risk filter, injects the transcript into
-        Claude Desktop, and streams the reply back sentence-by-sentence as speech.
-      </p>
-      <div class="pill-row">
-        <span class="pill">Local Faster-Whisper STT</span>
-        <span class="pill">X25519 + AES-GCM transport</span>
-        <span class="pill">Risk-aware command gating</span>
-        <span class="pill good">Bidirectional TTS</span>
-        <span class="pill good">macOS injection + reply capture</span>
+    <section class="hero-panel">
+      <div class="hero">
+        <div class="eyebrow">WalkieTalkie · secure voice bridge for Claude Desktop</div>
+        <h1>Speak on mobile.<br>Inject on desktop.<br>Hear Claude reply back.</h1>
+        <p class="lede">
+          WalkieTalkie is a production-focused, cross-platform voice bridge that captures speech on a mobile device,
+          encrypts it end-to-end, transcribes locally on desktop, applies a risk filter, injects the transcript into
+          Claude Desktop, and streams the reply back sentence-by-sentence as speech.
+        </p>
+        <div class="pill-row">
+          <span class="pill">Local Faster-Whisper STT</span>
+          <span class="pill">X25519 + AES-GCM transport</span>
+          <span class="pill">Risk-aware command gating</span>
+          <span class="pill good">Bidirectional TTS</span>
+          <span class="pill good">macOS injection + reply capture</span>
+        </div>
+        <div class="callout">
+          <div class="dot"></div>
+          <div>
+            <strong>New landing page</strong>
+            A polished overview for GitHub Pages, with setup, usage, architecture, and smoke-test guidance.
+          </div>
+        </div>
       </div>
     </section>
 
     <section class="grid">
       <article class="card span-7">
+        <div class="section-label">Overview</div>
         <h2>What it does</h2>
         <ul class="list">
           <li>Mobile push-to-talk captures PCM16 mono audio.</li>
@@ -157,6 +204,7 @@
         </ul>
       </article>
       <article class="card span-5">
+        <div class="section-label">Project status</div>
         <h2>Status</h2>
         <div class="kpi">
           <div><strong>Desktop</strong><span class="muted">Python agent</span></div>
@@ -166,6 +214,7 @@
       </article>
 
       <article class="card span-6">
+        <div class="section-label">Quick start</div>
         <h2>How to use</h2>
         <ol class="steps">
           <li>Start the desktop agent and grant Accessibility permission on macOS if needed.</li>
@@ -178,6 +227,7 @@ Mobile: flutter run</pre>
       </article>
 
       <article class="card span-6">
+        <div class="section-label">Validation</div>
         <h2>Automated smoke testing</h2>
         <p class="muted">
           Use the repository harness to verify pairing, encrypted transport, mock STT, risk filtering, and injection wiring:
@@ -187,6 +237,7 @@ Mobile: flutter run</pre>
       </article>
 
       <article class="card span-12">
+        <div class="section-label">System design</div>
         <h2>Architecture</h2>
         <ul class="list">
           <li><strong>Mobile:</strong> QR pairing, X25519 key generation, AES-GCM audio packets, push-to-talk capture.</li>
@@ -197,6 +248,7 @@ Mobile: flutter run</pre>
       </article>
 
       <article class="card span-6">
+        <div class="section-label">Setup</div>
         <h2>Setup notes</h2>
         <ul class="list">
           <li>Environment variables use the <code>WALKIETALKIE_</code> prefix.</li>
@@ -206,6 +258,7 @@ Mobile: flutter run</pre>
       </article>
 
       <article class="card span-6">
+        <div class="section-label">Links</div>
         <h2>More information</h2>
         <ul class="list">
           <li><a href="README.md">Repository README</a></li>
