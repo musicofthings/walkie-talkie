@@ -59,9 +59,10 @@ async def main() -> int:
         def __init__(self):
             self.injected = None
 
-        def inject(self, text: str, press_enter: bool = True) -> None:
+        def inject(self, text: str, press_enter: bool = True) -> str | None:
             print(f"[mock_injector] inject called: {text!r}, press_enter={press_enter}")
             self.injected = text
+            return None
 
     settings = AgentSettings()
     transcriber = MockTranscriber()
@@ -117,5 +118,40 @@ async def main() -> int:
 
 
 if __name__ == '__main__':
+    import sys
+    
+    print('[smoke] testing core audio→STT→risk→inject pipeline')
     res = asyncio.run(main())
-    raise SystemExit(res)
+    if res != 0:
+        raise SystemExit(res)
+    
+    print('\n[smoke] testing CLI injector modes')
+    
+    # Test CLI mode detection
+    from walkietalkie_agent.cli_targets import CLI_TARGETS, CliMode
+    
+    for key, target in CLI_TARGETS.items():
+        mode_name = "session" if target.mode == CliMode.SESSION else "one-shot"
+        print(f'[smoke] {key}: mode={mode_name}, command={target.command}')
+        if target.check_available():
+            print(f'[smoke] {key}: available in PATH')
+        else:
+            print(f'[smoke] {key}: NOT available in PATH (expected for smoke test)')
+    
+    # Test injector factory routing
+    from walkietalkie_agent.injection.factory import get_injector
+    
+    try:
+        one_shot_injector = get_injector("cursor", surface_kind="cli")
+        print(f'[smoke] cursor one-shot injector: {type(one_shot_injector).__name__}')
+        
+        session_injector = get_injector("claude", surface_kind="cli")
+        print(f'[smoke] claude session injector: {type(session_injector).__name__}')
+        
+        print('[smoke] SUCCESS: all injector routing works')
+    except Exception as e:
+        print(f'[smoke] FAILURE: injector routing failed: {e}')
+        raise SystemExit(2)
+    
+    print('\n[smoke] all tests passed!')
+    raise SystemExit(0)

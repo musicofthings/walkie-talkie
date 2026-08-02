@@ -17,7 +17,13 @@ def get_injector(target_name: str, surface_kind: str = "desktop") -> BaseInjecto
     systems where the other platform's dependencies are absent.
     """
     if surface_kind == "cli":
-        return CliInjector(get_cli_target(target_name))
+        cli_target = get_cli_target(target_name)
+        if cli_target.mode.value == "session":
+            from walkietalkie_agent.injection.cli_session import CliSessionInjector
+
+            return CliSessionInjector(cli_target)
+        else:
+            return CliInjector(cli_target)
 
     target = get_desktop_target(target_name)
     system = platform.system().lower()

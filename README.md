@@ -170,15 +170,22 @@ The desktop injector is target-aware on macOS and Windows. Start with:
 ## CLI Targets
 
 Set `WALKIETALKIE_SURFACE_KIND=cli` to route prompts through a command-line adapter.
-The initial CLI profiles are:
+The CLI layer supports both **one-shot** (spawn for each prompt) and **session** (persistent process) modes:
 
-- `claude`
-- `chatgpt`
-- `codex`
-- `cursor`
+| Target | Command | Mode | Notes |
+|--------|---------|------|-------|
+| `claude` | `claude` | session | Maintains conversation history across turns. |
+| `chatgpt` | `chatgpt --model gpt-4` | session | OpenAI CLI tool with GPT-4 model. |
+| `codex` | `copilot -a` | session | GitHub Copilot CLI (agent mode). |
+| `cursor` | `cursor` | one-shot | Cursor editor subprocess; spawns fresh for each prompt. |
 
-If your local command names differ, update the target profile definitions before use.
-CLI stdout responses are routed back through the same transcript/TTS callbacks as desktop replies.
+**Session Mode**: Starts a persistent CLI subprocess on first use, sends prompts over stdin, reads responses from stdout, and keeps the process alive for subsequent turns. Ideal for stateful CLIs like `claude-cli` that remember context.
+
+**One-shot Mode**: Spawns a new subprocess for each prompt, passes text via stdin, collects stdout, and closes. Use for lightweight tools like `cursor` that don't maintain state.
+
+If your local command names differ (e.g., a custom Python script), update the target profile definitions in `cli_targets.py` before use.
+
+CLI stdout responses are routed back through the same transcript/TTS callbacks as desktop replies, enabling hands-free conversation loops with any CLI agent tool.
 
 ## Phase 2 — Bidirectional voice (status)
 
