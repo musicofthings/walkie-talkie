@@ -178,6 +178,7 @@ The initial CLI profiles are:
 - `cursor`
 
 If your local command names differ, update the target profile definitions before use.
+CLI stdout responses are routed back through the same transcript/TTS callbacks as desktop replies.
 
 ## Phase 2 — Bidirectional voice (status)
 

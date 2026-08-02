@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import re
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
@@ -21,6 +22,8 @@ logger = structlog.get_logger(__name__)
 
 SendTtsCallback = Callable[[str], Awaitable[None]]
 SendTranscriptCallback = Callable[[str], Awaitable[None]]
+
+_SENTENCE_END = re.compile(r"[.!?…]+(?:\s|$)")
 
 
 class VoiceBridgePipeline:
@@ -146,13 +149,15 @@ class VoiceBridgePipeline:
 
         injected = False
         try:
-            await loop.run_in_executor(
+            response_text = await loop.run_in_executor(
                 None,
                 functools.partial(
                     self._injector.inject, combined_text, press_enter=self._settings.auto_send,
                 ),
             )
             injected = True
+            if isinstance(response_text, str) and response_text.strip():
+                await self._relay_response(response_text.strip())
         except Exception as exc:
             logger.error("injection.error", error=str(exc))
 
@@ -167,3 +172,24 @@ class VoiceBridgePipeline:
 
         if injected and self._response_watcher is not None:
             asyncio.create_task(self._response_watcher.watch())
+
+    async def _relay_response(self, response_text: str) -> None:
+        """Send a direct CLI response back through transcript/TTS callbacks."""
+        if self._send_transcript is not None:
+            asyncio.create_task(self._send_transcript(response_text))
+        if self._send_tts is None:
+            return
+        pending = response_text
+        ends = list(_SENTENCE_END.finditer(pending))
+        if not ends:
+            await self._send_tts(pending)
+            return
+        start = 0
+        for match in ends:
+            chunk = pending[start:match.end()].strip()
+            if chunk:
+                await self._send_tts(chunk)
+            start = match.end()
+        remainder = pending[start:].strip()
+        if remainder:
+            await self._send_tts(remainder)

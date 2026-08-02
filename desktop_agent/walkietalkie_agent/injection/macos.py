@@ -56,7 +56,7 @@ class MacOSInjector(BaseInjector):
     def __init__(self, target: DesktopTargetProfile) -> None:
         self._target = target
 
-    def inject(self, text: str, press_enter: bool = True) -> None:
+    def inject(self, text: str, press_enter: bool = True) -> str | None:
         saved_clipboard = self._read_clipboard()
         cold_start = self._ensure_running()
         self._write_clipboard(text)
@@ -94,6 +94,7 @@ class MacOSInjector(BaseInjector):
                 cold_start=cold_start,
                 target=self._target.display_name,
             )
+            return None
         except subprocess.CalledProcessError as exc:
             stderr = exc.stderr.decode(errors="replace") if exc.stderr else ""
             if "1002" in stderr or "not allowed" in stderr.lower():

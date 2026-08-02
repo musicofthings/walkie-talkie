@@ -18,7 +18,7 @@ class CliInjector(BaseInjector):
     def __init__(self, target: CliTargetProfile) -> None:
         self._target = target
 
-    def inject(self, text: str, press_enter: bool = True) -> None:
+    def inject(self, text: str, press_enter: bool = True) -> str | None:
         prompt = text if press_enter else text.rstrip("\n")
         try:
             completed = subprocess.run(
@@ -30,12 +30,16 @@ class CliInjector(BaseInjector):
                 timeout=120,
             )
             if completed.stdout.strip():
+                response = completed.stdout.strip()
                 logger.info(
                     "cli.inject.output",
                     target=self._target.display_name,
-                    chars=len(completed.stdout.strip()),
+                    chars=len(response),
                 )
+                logger.info("cli.inject.ok", target=self._target.display_name, chars=len(text))
+                return response
             logger.info("cli.inject.ok", target=self._target.display_name, chars=len(text))
+            return None
         except FileNotFoundError as exc:
             logger.error("cli.inject.command_missing", target=self._target.display_name, command=self._target.command)
             raise

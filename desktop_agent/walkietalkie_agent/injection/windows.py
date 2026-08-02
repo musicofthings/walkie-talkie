@@ -16,7 +16,7 @@ class WindowsInjector(BaseInjector):
     def __init__(self, target: DesktopTargetProfile) -> None:
         self._target = target
 
-    def inject(self, text: str, press_enter: bool = True) -> None:
+    def inject(self, text: str, press_enter: bool = True) -> str | None:
         title_re = "|".join(re.escape(name) for name in (self._target.process_names or (self._target.app_name,)))
         app = Application(backend="uia").connect(title_re=f".*({title_re}).*")
         window = app.top_window()
@@ -24,3 +24,4 @@ class WindowsInjector(BaseInjector):
         keyboard.send_keys(text, with_spaces=True, pause=0.01)
         if press_enter:
             keyboard.send_keys("{ENTER}")
+        return None
