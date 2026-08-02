@@ -37,21 +37,52 @@ async def main() -> int:
     session = pairing.create_session('smoke-device', client_pub_b64)
     print('[smoke] session created, token:', session.token[:8] + '...')
 
-    # Prepare a short synthetic PCM16-like payload (silence)
-    # Using 160 samples of 16-bit PCM (~10ms at 16kHz is 160 samples) -> 320 bytes
-    plaintext = bytes([0] * 320)
+    # Prepare a short synthetic PCM16-like payload (non-silent)
+    # Use int16 samples with amplitude 1000 -> RMS > silence threshold
+    import array
+    samples = array.array('h', [1000] * 160)  # 160 samples -> 320 bytes
+    plaintext = samples.tobytes()
 
-    # Async callbacks to capture results
+    # Prepare STT -> risk -> injection components
+    from walkietalkie_agent.config import AgentSettings
+    from walkietalkie_agent.pipeline.bridge import VoiceBridgePipeline
+    from walkietalkie_agent.risk.filter import RiskFilter
+    from walkietalkie_agent.models import TranscriptEvent
+    from pathlib import Path
+
+    class MockTranscriber:
+        def transcribe_pcm16_mono(self, pcm_bytes: bytes, sample_rate: int = 16000) -> TranscriptEvent:
+            # Simple deterministic transcription of the audio chunk
+            return TranscriptEvent(text='hello from smoke', confidence=0.99, latency_ms=10)
+
+    class MockInjector:
+        def __init__(self):
+            self.injected = None
+
+        def inject(self, text: str, press_enter: bool = True) -> None:
+            print(f"[mock_injector] inject called: {text!r}, press_enter={press_enter}")
+            self.injected = text
+
+    settings = AgentSettings()
+    transcriber = MockTranscriber()
+    risk_filter = RiskFilter(Path('logs/test_actions.log'), require_confirmation=False)
+    injector = MockInjector()
+
+    pipeline = VoiceBridgePipeline(settings, transcriber, risk_filter, injector)
+
+    # Async callbacks to forward decrypted audio into pipeline
     seen_audio = {}
 
     async def on_audio(chunk: bytes) -> None:
         print(f'[smoke] on_audio invoked, len={len(chunk)}')
         seen_audio['len'] = len(chunk)
-        seen_audio['chunk0'] = chunk[:8]
+        # Feed into pipeline as if buffering
+        await pipeline._transcribe_to_pending(chunk)
 
     async def on_flush() -> None:
         print('[smoke] on_flush invoked')
         seen_audio['flushed'] = True
+        await pipeline.flush_buffer()
 
     server = AudioIngressServer(pairing=pairing, on_audio=on_audio, on_flush=on_flush)
 
@@ -68,19 +99,20 @@ async def main() -> int:
     ok = await server._handle_audio_packet(None, {'payload': payload}, session)
     print('[smoke] _handle_audio_packet returned', ok)
 
-    # Simulate flush
+    # Simulate flush (this will trigger pipeline.flush_buffer)
     if server._on_flush is not None:
         await server._on_flush()
 
     # Small wait to ensure callbacks have run
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.2)
 
-    # Validate results
-    if seen_audio.get('len') == len(plaintext) and seen_audio.get('flushed') is True:
-        print('[smoke] SUCCESS: audio processed and flush handled')
+    # Validate results: ensure injector recorded injected text and flush happened
+    injected_text = injector.injected
+    if injected_text and seen_audio.get('flushed') is True:
+        print('[smoke] SUCCESS: audio processed, transcribed, and injected:', injected_text)
         return 0
     else:
-        print('[smoke] FAILURE: callbacks not invoked as expected', seen_audio)
+        print('[smoke] FAILURE: expected injection/flushed state', {'injected': injected_text, 'seen': seen_audio})
         return 2
 
 
