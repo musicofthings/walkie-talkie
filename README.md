@@ -1,6 +1,11 @@
 # WalkieTalkie
 
-The first **two-way conversational** voice bridge for remote-controlling Claude Desktop, hands-free (on the go, in the car). It captures speech on mobile, streams securely to desktop, transcribes locally with Faster-Whisper, risk-filters content, injects text into the active Claude Desktop tab, and **streams Claude's reply back as speech sentence-by-sentence** as it is generated.
+The first **two-way conversational** voice bridge for remote-controlling AI agents, hands-free (on the go, in the car). It captures speech on mobile, streams securely to desktop, transcribes locally with Faster-Whisper, risk-filters content, and injects text into:
+
+- **Desktop UI targets**: Claude Desktop, ChatGPT, Codex, Cursor (via native injection)
+- **CLI targets**: Claude CLI, ChatGPT CLI, Copilot/Codex CLI, custom commands (via session or one-shot subprocess)
+
+Streams agent replies back as speech sentence-by-sentence as they are generated, enabling fully hands-free multi-turn conversations.
 
 For the GitHub Pages landing page, see [index.html](./index.html).
 

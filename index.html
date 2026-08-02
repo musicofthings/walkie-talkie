@@ -167,25 +167,25 @@
   <main class="wrap">
     <section class="hero-panel">
       <div class="hero">
-        <div class="eyebrow">WalkieTalkie · secure voice bridge for Claude Desktop</div>
-        <h1>Speak on mobile.<br>Inject on desktop.<br>Hear Claude reply back.</h1>
+        <div class="eyebrow">WalkieTalkie · hands-free voice bridge for AI agents</div>
+        <h1>Speak on mobile.<br>Inject on any agent.<br>Hear replies back instantly.</h1>
         <p class="lede">
           WalkieTalkie is a production-focused, cross-platform voice bridge that captures speech on a mobile device,
-          encrypts it end-to-end, transcribes locally on desktop, applies a risk filter, injects the transcript into
-          Claude Desktop, and streams the reply back sentence-by-sentence as speech.
+          encrypts it end-to-end, transcribes locally on desktop, applies a risk filter, and injects the transcript into
+          any AI agent: Claude Desktop, ChatGPT, Cursor, Codex, or any CLI tool (via session or one-shot mode). Streams replies back sentence-by-sentence as speech.
         </p>
         <div class="pill-row">
           <span class="pill">Local Faster-Whisper STT</span>
           <span class="pill">X25519 + AES-GCM transport</span>
           <span class="pill">Risk-aware command gating</span>
           <span class="pill good">Bidirectional TTS</span>
-          <span class="pill good">macOS injection + reply capture</span>
+          <span class="pill good">Multi-agent desktop + CLI</span>
         </div>
         <div class="callout">
           <div class="dot"></div>
           <div>
-            <strong>New landing page</strong>
-            A polished overview for GitHub Pages, with setup, usage, architecture, and smoke-test guidance.
+            <strong>CLI session mode</strong>
+            Stateful CLI agents (Claude CLI, ChatGPT CLI, Copilot) maintain context across turns. One-shot mode for lightweight tools like Cursor.
           </div>
         </div>
       </div>
@@ -197,10 +197,10 @@
         <h2>What it does</h2>
         <ul class="list">
           <li>Mobile push-to-talk captures PCM16 mono audio.</li>
-          <li>Desktop decrypts audio and transcribes locally.</li>
+          <li>Desktop decrypts audio and transcribes locally with Faster-Whisper.</li>
           <li>Risk filter flags potentially destructive instructions for confirmation.</li>
-          <li>Approved text is injected into the active Claude Desktop composer.</li>
-          <li>Claude responses are streamed back as live speech.</li>
+          <li>Approved text is injected into any AI agent target (Claude Desktop, ChatGPT, Codex, Cursor) or CLI tool (stateful or one-shot).</li>
+          <li>Agent replies are streamed back as live speech sentence-by-sentence.</li>
         </ul>
       </article>
       <article class="card span-5">
@@ -249,11 +249,12 @@ Mobile: flutter run</pre>
 
       <article class="card span-6">
         <div class="section-label">Setup</div>
-        <h2>Setup notes</h2>
+        <h2>Configuration</h2>
         <ul class="list">
           <li>Environment variables use the <code>WALKIETALKIE_</code> prefix.</li>
-          <li>Set <code>WALKIETALKIE_SURFACE_KIND</code> to <code>desktop</code> or <code>cli</code>.</li>
-          <li>Set <code>WALKIETALKIE_DESKTOP_TARGET</code> to <code>claude</code>, <code>chatgpt</code>, <code>codex</code>, or <code>cursor</code>.</li>
+          <li><code>WALKIETALKIE_SURFACE_KIND</code>: <code>desktop</code> or <code>cli</code>.</li>
+          <li><code>WALKIETALKIE_DESKTOP_TARGET</code>: <code>claude</code>, <code>chatgpt</code>, <code>codex</code>, or <code>cursor</code>.</li>
+          <li><code>WALKIETALKIE_CLI_TARGET</code>: <code>claude</code> (session), <code>chatgpt</code> (session), <code>codex</code> (session), or <code>cursor</code> (one-shot).</li>
           <li>macOS injection and response capture require Accessibility permission.</li>
           <li>Faster-Whisper runs locally on the desktop.</li>
         </ul>
@@ -267,12 +268,12 @@ Mobile: flutter run</pre>
           <li><a href="scripts/smoke_harness.py">Smoke harness</a></li>
           <li><a href="test_client.html">Browser test client</a></li>
         </ul>
-        <p class="muted">CLI targets now echo stdout responses back through the same transcript and speech callbacks.</p>
+        <p class="muted"><strong>CLI session mode:</strong> stateful CLI agents (Claude, ChatGPT, Copilot) maintain context with persistent processes. One-shot mode for lightweight tools. Responses routed back through transcript and TTS callbacks.</p>
       </article>
     </section>
 
     <div class="footer">
-      WalkieTalkie is designed for low-latency, secure, hands-free workflows with Claude Desktop.
+      WalkieTalkie is designed for low-latency, secure, hands-free workflows with any AI agent.
     </div>
   </main>
 </body>
